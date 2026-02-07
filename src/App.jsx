@@ -526,7 +526,11 @@ const App = () => {
     setAdminSearchName('');
   };
   
-  // 下載月曆為 PNG（開啟新網頁下載，保證完整區域）
+  // 圖片預覽狀態
+  const [previewImage, setPreviewImage] = useState(null);
+  const [previewFilename, setPreviewFilename] = useState('');
+
+  // 下載月曆為 PNG（在當前頁面顯示圖片預覽，讓用戶長按保存）
   const downloadCalendarAsPng = async (refElement, filename) => {
     if (!refElement.current) return;
     
@@ -552,38 +556,9 @@ const App = () => {
       // 使用 data URL
       const dataUrl = canvas.toDataURL('image/png', 1.0);
       
-      // 開啟新網頁顯示圖片，讓用戶長按保存
-      const newWindow = window.open('', '_blank');
-      if (newWindow) {
-        newWindow.document.write(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>${filename}</title>
-            <style>
-              body { margin: 0; padding: 20px; background: #f1f5f9; text-align: center; font-family: -apple-system, sans-serif; }
-              img { max-width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-              p { color: #64748b; margin-top: 20px; font-size: 14px; }
-              .btn { display: inline-block; margin-top: 15px; padding: 12px 24px; background: #3b82f6; color: white; border-radius: 8px; text-decoration: none; font-weight: bold; }
-            </style>
-          </head>
-          <body>
-            <img src="${dataUrl}" alt="${filename}"/>
-            <p>📱 長按圖片 → 選擇「儲存圖片」或「加入照片」</p>
-          </body>
-          </html>
-        `);
-        newWindow.document.close();
-      } else {
-        // 如果無法開啟新視窗，嘗試直接下載
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
+      // 在當前頁面顯示圖片預覽模態框
+      setPreviewImage(dataUrl);
+      setPreviewFilename(filename);
       
       setIsDownloading(false);
     } catch (error) {
@@ -1027,6 +1002,26 @@ const App = () => {
         </nav>
 
         {/* 原始 Sheet 彈窗 */}
+        {/* 圖片預覽模態框 - 讓用戶長按保存 */}
+        {previewImage && (
+          <div className="fixed inset-0 z-[200] bg-slate-950/95 backdrop-blur-lg flex flex-col items-center justify-center p-4">
+            <div className="w-full max-w-lg bg-white rounded-3xl overflow-hidden shadow-2xl">
+              <div className="p-4 bg-slate-50 border-b flex items-center justify-between">
+                <h3 className="text-lg font-black text-slate-900">📱 長按圖片保存</h3>
+                <button onClick={() => setPreviewImage(null)} className="p-2 bg-white shadow border border-slate-200 rounded-xl text-slate-400 hover:text-red-500">
+                  <X size={20}/>
+                </button>
+              </div>
+              <div className="p-4 bg-slate-100 overflow-auto max-h-[70vh]">
+                <img src={previewImage} alt={previewFilename} className="w-full rounded-xl shadow-lg" />
+              </div>
+              <div className="p-4 bg-slate-50 text-center">
+                <p className="text-slate-500 text-sm font-bold">長按上方圖片 → 選擇「儲存圖片」或「加入照片」</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showSheetModal && (
           <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-lg flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-6xl h-[80vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl">
