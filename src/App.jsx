@@ -214,6 +214,8 @@ const App = () => {
         if (n.includes('本月')) return 2;
         // 對於出勤時數，如果沒有月份標記也接受（會根據資料內容過濾）
         if (type === 'attendance' && (n.includes('出勤時數') || n.includes('出勤時間'))) return 1;
+        // 班表和出勤記錄必須有月份匹配才載入，否則返回 -1 表示不載入
+        if (type === 'schedule' || type === 'records') return -1;
         return 0;
       };
 
@@ -235,7 +237,8 @@ const App = () => {
 
       const sheetsToFetch = {};
       for (const { sheetName, type, priority } of otherSheets) {
-        if (!sheetsToFetch[type] || priority > sheetsToFetch[type].priority) {
+        // 只載入優先級 > 0 的分頁（有月份匹配）
+        if (priority > 0 && (!sheetsToFetch[type] || priority > sheetsToFetch[type].priority)) {
           sheetsToFetch[type] = { sheetName, priority };
         }
       }
