@@ -520,6 +520,70 @@ export async function getSheetData(warehouse, sheetName, name = '', options = {}
 }
 
 /**
+ * 批量讀取多個分頁資料（一次請求）
+ * @param {string} warehouse - 倉庫代碼
+ * @param {string[]} sheetNames - 分頁名稱列表
+ * @param {Object} options - 選項
+ * @returns {Promise<Object>} 分頁資料 Map
+ */
+export async function getBatchSheetData(warehouse, sheetNames, options = {}) {
+  const gasUrl = getGasUrl(warehouse);
+  if (!gasUrl) {
+    throw new Error(`倉庫 ${warehouse} 尚未設定 GAS URL`);
+  }
+
+  // 檢查快取，過濾出需要請求的分頁
+  const results = {};
+  const sheetsToFetch = [];
+  
+  for (const sheetName of sheetNames) {
+    const cacheKey = `${warehouse}|${sheetName}|`;
+    const cached = cache.sheetData.get(cacheKey);
+    if (cached && Date.now() - cached.ts < CACHE_TTL.sheetData) {
+      results[sheetName] = cached.value;
+    } else {
+      sheetsToFetch.push(sheetName);
+    }
+  }
+
+  // 如果所有分頁都有快取，直接返回
+  if (sheetsToFetch.length === 0) {
+    return results;
+  }
+
+  // 並行請求所有需要的分頁
+  const fetchPromises = sheetsToFetch.map(async (sheetName) => {
+    try {
+      const url = buildUrl(gasUrl, {
+        mode: 'api',
+        wh: warehouse,
+        sheet: sheetName,
+        birthday: (options?.birthday || '').trim(),
+        t: String(Date.now())
+      });
+      const result = await fetchApi(url);
+      if (!result.error) {
+        const cacheKey = `${warehouse}|${sheetName}|`;
+        cache.sheetData.set(cacheKey, { ts: Date.now(), value: result });
+      }
+      return { sheetName, result, error: result.error || null };
+    } catch (e) {
+      return { sheetName, result: null, error: e.message };
+    }
+  });
+
+  const fetchResults = await Promise.all(fetchPromises);
+  
+  for (const { sheetName, result, error } of fetchResults) {
+    if (!error && result) {
+      results[sheetName] = result;
+    }
+  }
+
+  return results;
+}
+
+/**
  * 解析分頁資料為標準格式
  * @param {Object} rawData - 原始 API 回傳資料
  * @param {Object} options - 選項
@@ -689,6 +753,7 @@ export default {
   getWarehouseSheetId,
   getSheetNames,
   getSheetData,
+  getBatchSheetData,
   parseSheetData,
   getRowName,
   getSheetType,

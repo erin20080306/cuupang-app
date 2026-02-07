@@ -25,6 +25,7 @@ import {
   verifyLogin,
   getSheetNames,
   getSheetData,
+  getBatchSheetData,
   parseSheetData,
   getRowName,
   normalizeName,
@@ -237,65 +238,56 @@ const App = () => {
       const recordSheets = sortByMonthPriority(names.filter(n => classifySheet(n) === 'records'));
       const adjustmentSheets = names.filter(n => classifySheet(n) === 'adjustment').slice(0, 1);
 
-      // 載入所有分頁（優先匹配月份的排在前面）
-      const limitedScheduleSheets = scheduleSheets;
-      const limitedRecordSheets = recordSheets;
-      const limitedAttendanceSheets = attendanceSheets;
-
-      // 並行抓取分頁（限制數量以加快速度）
-      const otherFetchPromises = [
-        ...limitedScheduleSheets.map(async (sheetName) => {
-          try {
-            const raw = await getSheetData(warehouse, sheetName, '', { birthday: userBirthday });
-            const parsed = parseSheetData(raw);
-            const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
-            return { type: 'schedule', sheetName, parsed, matched, hasUserData: matched.length > 0 };
-          } catch (e) {
-            console.warn(`抓取分頁 ${sheetName} 失敗:`, e);
-            return { type: 'schedule', sheetName, parsed: null, matched: [], hasUserData: false };
-          }
-        }),
-        ...limitedRecordSheets.map(async (sheetName) => {
-          try {
-            const raw = await getSheetData(warehouse, sheetName, '', { birthday: userBirthday });
-            const parsed = parseSheetData(raw);
-            const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
-            return { type: 'records', sheetName, parsed, matched, hasUserData: matched.length > 0 };
-          } catch (e) {
-            console.warn(`抓取分頁 ${sheetName} 失敗:`, e);
-            return { type: 'records', sheetName, parsed: null, matched: [], hasUserData: false };
-          }
-        }),
-        ...adjustmentSheets.slice(0, 1).map(async (sheetName) => {
-          try {
-            const raw = await getSheetData(warehouse, sheetName, '', { birthday: userBirthday });
-            const parsed = parseSheetData(raw);
-            const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
-            return { type: 'adjustment', sheetName, parsed, matched, hasUserData: matched.length > 0 };
-          } catch (e) {
-            console.warn(`抓取分頁 ${sheetName} 失敗:`, e);
-            return { type: 'adjustment', sheetName, parsed: null, matched: [], hasUserData: false };
-          }
-        })
+      // 合併所有需要載入的分頁名稱
+      const allSheetNames = [
+        ...scheduleSheets,
+        ...recordSheets,
+        ...attendanceSheets,
+        ...adjustmentSheets.slice(0, 1)
       ];
 
-      // 並行抓取出勤時數分頁（限制數量）
-      const attendanceFetchPromises = limitedAttendanceSheets.map(async (sheetName) => {
-        try {
-          const raw = await getSheetData(warehouse, sheetName, '', { birthday: userBirthday });
+      // 一次性批量請求所有分頁資料
+      const batchData = await getBatchSheetData(warehouse, allSheetNames, { birthday: userBirthday });
+
+      // 處理批量結果
+      const otherResults = [];
+      const attendanceResults = [];
+
+      for (const sheetName of scheduleSheets) {
+        const raw = batchData[sheetName];
+        if (raw) {
           const parsed = parseSheetData(raw);
           const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
-          return { sheetName, parsed, matched, hasUserData: matched.length > 0 };
-        } catch (e) {
-          console.warn(`抓取出勤時數分頁 ${sheetName} 失敗:`, e);
-          return { sheetName, parsed: null, matched: [], hasUserData: false };
+          otherResults.push({ type: 'schedule', sheetName, parsed, matched, hasUserData: matched.length > 0 });
         }
-      });
+      }
 
-      const [otherResults, attendanceResults] = await Promise.all([
-        Promise.all(otherFetchPromises),
-        Promise.all(attendanceFetchPromises)
-      ]);
+      for (const sheetName of recordSheets) {
+        const raw = batchData[sheetName];
+        if (raw) {
+          const parsed = parseSheetData(raw);
+          const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
+          otherResults.push({ type: 'records', sheetName, parsed, matched, hasUserData: matched.length > 0 });
+        }
+      }
+
+      for (const sheetName of adjustmentSheets.slice(0, 1)) {
+        const raw = batchData[sheetName];
+        if (raw) {
+          const parsed = parseSheetData(raw);
+          const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
+          otherResults.push({ type: 'adjustment', sheetName, parsed, matched, hasUserData: matched.length > 0 });
+        }
+      }
+
+      for (const sheetName of attendanceSheets) {
+        const raw = batchData[sheetName];
+        if (raw) {
+          const parsed = parseSheetData(raw);
+          const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
+          attendanceResults.push({ sheetName, parsed, matched, hasUserData: matched.length > 0 });
+        }
+      }
 
       // 整理非出勤時數結果 - 根據資料中的日期過濾選擇月份的資料
       const resolvedNames = { schedule: '', attendance: '', records: '', adjustment: '' };
