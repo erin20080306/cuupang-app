@@ -786,6 +786,13 @@ const App = () => {
                       birthday: '',
                       isAdmin: true
                     };
+                    // 先清空舊資料，避免混合
+                    setSheetData({
+                      schedule: { headers: [], rows: [], dateCols: [], headersISO: [] },
+                      attendance: { headers: [], rows: [], dateCols: [], headersISO: [] },
+                      records: { headers: [], rows: [], dateCols: [], headersISO: [] },
+                      adjustment: { headers: [], rows: [], dateCols: [], headersISO: [] },
+                    });
                     setUser(userData);
                     e.target.searchName.value = '';
                     clearAllCache();
