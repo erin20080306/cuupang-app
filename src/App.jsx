@@ -318,26 +318,38 @@ const App = () => {
         const headers = Array.isArray(parsed?.headers) ? parsed.headers : [];
         const dateCols = Array.isArray(parsed?.dateCols) ? parsed.dateCols : [];
 
+        console.log('[月份判斷] headersISO:', headersISO.slice(0, 10), 'headers:', headers.slice(0, 10), 'dateCols:', dateCols, 'targetMonth:', targetMonth);
+
         // 優先用 headersISO 判斷（最準確）
         let foundAnyDate = false;
         for (let idx = 0; idx < headersISO.length; idx++) {
           const monthFromISO = parseMonthFromISO(headersISO[idx]);
           if (monthFromISO !== null) {
             foundAnyDate = true;
-            if (monthFromISO === targetMonth) return true;
+            if (monthFromISO === targetMonth) {
+              console.log('[月份判斷] headersISO 匹配:', headersISO[idx]);
+              return true;
+            }
           }
         }
-        if (foundAnyDate) return false; // 有日期欄位但沒有選擇月份
+        if (foundAnyDate) {
+          console.log('[月份判斷] headersISO 有日期但無匹配');
+          return false;
+        }
 
         // 如果 headersISO 沒有日期，用 headers 文字判斷
         for (let idx = 0; idx < headers.length; idx++) {
           const month = parseMonthFromHeaderText(headers[idx]);
           if (month !== null) {
             foundAnyDate = true;
-            if (month === targetMonth) return true;
+            if (month === targetMonth) {
+              console.log('[月份判斷] headers 匹配:', headers[idx]);
+              return true;
+            }
           }
         }
         
+        console.log('[月份判斷] 結果:', foundAnyDate ? '有日期但無匹配' : '無日期欄位');
         // 如果完全找不到日期欄位，返回 false（不顯示）
         return false;
       };
