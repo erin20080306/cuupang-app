@@ -219,19 +219,31 @@ const App = () => {
         return 1;
       };
 
-      // 篩選出所有出勤時數分頁（不只取一個）
-      const attendanceSheets = names.filter(n => {
-        const type = classifySheet(n);
-        return type === 'attendance';
-      });
+      // 根據分頁名稱中的月份排序，優先抓取匹配的分頁
+      const sortByMonthPriority = (sheets) => {
+        return [...sheets].sort((a, b) => {
+          const aHasMonth = a.includes(`${monthStr}月`);
+          const bHasMonth = b.includes(`${monthStr}月`);
+          if (aHasMonth && !bHasMonth) return -1;
+          if (!aHasMonth && bHasMonth) return 1;
+          return 0;
+        });
+      };
 
-      const scheduleSheets = names.filter(n => classifySheet(n) === 'schedule');
-      const recordSheets = names.filter(n => classifySheet(n) === 'records');
-      const adjustmentSheets = names.filter(n => classifySheet(n) === 'adjustment');
+      // 篩選並排序分頁
+      const attendanceSheets = sortByMonthPriority(names.filter(n => classifySheet(n) === 'attendance'));
+      const scheduleSheets = sortByMonthPriority(names.filter(n => classifySheet(n) === 'schedule'));
+      const recordSheets = sortByMonthPriority(names.filter(n => classifySheet(n) === 'records'));
+      const adjustmentSheets = names.filter(n => classifySheet(n) === 'adjustment').slice(0, 1);
 
-      // 並行抓取非出勤時數的分頁（班表/出勤記錄抓取全部分頁，避免只取到錯誤月份）
+      // 限制每種類型最多抓取 2 個分頁（優先匹配月份的）
+      const limitedScheduleSheets = scheduleSheets.slice(0, 2);
+      const limitedRecordSheets = recordSheets.slice(0, 2);
+      const limitedAttendanceSheets = attendanceSheets.slice(0, 2);
+
+      // 並行抓取分頁（限制數量以加快速度）
       const otherFetchPromises = [
-        ...scheduleSheets.map(async (sheetName) => {
+        ...limitedScheduleSheets.map(async (sheetName) => {
           try {
             const raw = await getSheetData(warehouse, sheetName, '', { birthday: userBirthday });
             const parsed = parseSheetData(raw);
@@ -242,7 +254,7 @@ const App = () => {
             return { type: 'schedule', sheetName, parsed: null, matched: [], hasUserData: false };
           }
         }),
-        ...recordSheets.map(async (sheetName) => {
+        ...limitedRecordSheets.map(async (sheetName) => {
           try {
             const raw = await getSheetData(warehouse, sheetName, '', { birthday: userBirthday });
             const parsed = parseSheetData(raw);
@@ -266,8 +278,8 @@ const App = () => {
         })
       ];
 
-      // 並行抓取所有出勤時數分頁
-      const attendanceFetchPromises = attendanceSheets.map(async (sheetName) => {
+      // 並行抓取出勤時數分頁（限制數量）
+      const attendanceFetchPromises = limitedAttendanceSheets.map(async (sheetName) => {
         try {
           const raw = await getSheetData(warehouse, sheetName, '', { birthday: userBirthday });
           const parsed = parseSheetData(raw);

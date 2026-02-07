@@ -36,9 +36,9 @@ const cache = {
 };
 
 const CACHE_TTL = {
-  sheetId: 5 * 60 * 1000,      // 5 分鐘
-  sheetNames: 2 * 60 * 1000,   // 2 分鐘
-  sheetData: 60 * 1000,        // 1 分鐘
+  sheetId: 10 * 60 * 1000,     // 10 分鐘
+  sheetNames: 5 * 60 * 1000,   // 5 分鐘
+  sheetData: 3 * 60 * 1000,    // 3 分鐘（加長快取時間）
 };
 
 /**
