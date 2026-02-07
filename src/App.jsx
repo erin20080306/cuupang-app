@@ -34,9 +34,9 @@ import {
 
 // --- NavBtn 元件 ---
 const NavBtn = ({ active, onClick, icon, label }) => (
-  <button onClick={onClick} className={`flex flex-col items-center gap-1 transition-all duration-300 ${active ? 'text-blue-600 scale-105 font-black' : 'text-slate-300 font-bold'}`}>
-    <div className={`${active ? 'bg-blue-50 p-2 rounded-xl shadow-inner' : ''}`}>{icon}</div>
-    <span className="text-[10px] tracking-tight whitespace-nowrap">{label}</span>
+  <button onClick={onClick} className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${active ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
+    <div className={`${active ? 'bg-blue-50 p-2.5 rounded-xl shadow-inner' : 'p-1'}`}>{icon}</div>
+    <span className={`text-xs tracking-tight whitespace-nowrap ${active ? 'font-black' : 'font-semibold'}`}>{label}</span>
   </button>
 );
 
