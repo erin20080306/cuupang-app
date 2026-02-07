@@ -247,8 +247,8 @@ const App = () => {
         ...adjustmentSheets
       ];
 
-      // 一次性批量請求所有分頁資料
-      const batchData = await getBatchSheetData(warehouse, allSheetNames, { birthday: userBirthday });
+      // 一次性批量請求所有分頁資料（傳送姓名讓 API 伺服器端過濾）
+      const batchData = await getBatchSheetData(warehouse, allSheetNames, { birthday: userBirthday, name: userName });
 
       // 處理批量結果
       const otherResults = [];

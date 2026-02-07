@@ -539,12 +539,14 @@ export async function getBatchSheetData(warehouse, sheetNames, options = {}) {
     throw new Error(`倉庫 ${warehouse} 尚未設定 GAS URL`);
   }
 
+  const userName = (options?.name || '').trim();
+
   // 檢查快取，過濾出需要請求的分頁
   const results = {};
   const sheetsToFetch = [];
   
   for (const sheetName of sheetNames) {
-    const cacheKey = `${warehouse}|${sheetName}|`;
+    const cacheKey = `${warehouse}|${sheetName}|${userName}`;
     const cached = cache.sheetData.get(cacheKey);
     if (cached && Date.now() - cached.ts < CACHE_TTL.sheetData) {
       results[sheetName] = cached.value;
@@ -565,12 +567,13 @@ export async function getBatchSheetData(warehouse, sheetNames, options = {}) {
         mode: 'api',
         wh: warehouse,
         sheet: sheetName,
+        name: userName,
         birthday: (options?.birthday || '').trim(),
         t: String(Date.now())
       });
       const result = await fetchApi(url);
       if (!result.error) {
-        const cacheKey = `${warehouse}|${sheetName}|`;
+        const cacheKey = `${warehouse}|${sheetName}|${userName}`;
         cache.sheetData.set(cacheKey, { ts: Date.now(), value: result });
       }
       return { sheetName, result, error: result.error || null };
