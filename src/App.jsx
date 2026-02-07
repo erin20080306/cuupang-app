@@ -237,10 +237,10 @@ const App = () => {
       const recordSheets = sortByMonthPriority(names.filter(n => classifySheet(n) === 'records'));
       const adjustmentSheets = names.filter(n => classifySheet(n) === 'adjustment').slice(0, 1);
 
-      // 限制每種類型最多抓取 2 個分頁（優先匹配月份的）
-      const limitedScheduleSheets = scheduleSheets.slice(0, 2);
-      const limitedRecordSheets = recordSheets.slice(0, 2);
-      const limitedAttendanceSheets = attendanceSheets.slice(0, 2);
+      // 載入所有分頁（優先匹配月份的排在前面）
+      const limitedScheduleSheets = scheduleSheets;
+      const limitedRecordSheets = recordSheets;
+      const limitedAttendanceSheets = attendanceSheets;
 
       // 並行抓取分頁（限制數量以加快速度）
       const otherFetchPromises = [
@@ -329,9 +329,6 @@ const App = () => {
       const hasSelectedMonthInColumns = (parsed) => {
         const headersISO = Array.isArray(parsed?.headersISO) ? parsed.headersISO : [];
         const headers = Array.isArray(parsed?.headers) ? parsed.headers : [];
-        const dateCols = Array.isArray(parsed?.dateCols) ? parsed.dateCols : [];
-
-        console.log('[月份判斷] headersISO:', headersISO.slice(0, 10), 'headers:', headers.slice(0, 10), 'dateCols:', dateCols, 'targetMonth:', targetMonth);
 
         // 優先用 headersISO 判斷（最準確）
         let foundAnyDate = false;
@@ -339,30 +336,20 @@ const App = () => {
           const monthFromISO = parseMonthFromISO(headersISO[idx]);
           if (monthFromISO !== null) {
             foundAnyDate = true;
-            if (monthFromISO === targetMonth) {
-              console.log('[月份判斷] headersISO 匹配:', headersISO[idx]);
-              return true;
-            }
+            if (monthFromISO === targetMonth) return true;
           }
         }
-        if (foundAnyDate) {
-          console.log('[月份判斷] headersISO 有日期但無匹配');
-          return false;
-        }
+        if (foundAnyDate) return false;
 
         // 如果 headersISO 沒有日期，用 headers 文字判斷
         for (let idx = 0; idx < headers.length; idx++) {
           const month = parseMonthFromHeaderText(headers[idx]);
           if (month !== null) {
             foundAnyDate = true;
-            if (month === targetMonth) {
-              console.log('[月份判斷] headers 匹配:', headers[idx]);
-              return true;
-            }
+            if (month === targetMonth) return true;
           }
         }
         
-        console.log('[月份判斷] 結果:', foundAnyDate ? '有日期但無匹配' : '無日期欄位');
         // 如果完全找不到日期欄位，返回 false（不顯示）
         return false;
       };
