@@ -79,6 +79,16 @@ const App = () => {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [adminSearchName, setAdminSearchName] = useState('');
   
+  // 檢測是否為 PWA 模式（手機安裝後開啟）
+  const [isPWA, setIsPWA] = useState(false);
+  useEffect(() => {
+    // 檢測 PWA standalone 模式
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
+      || window.navigator.standalone === true
+      || document.referrer.includes('android-app://');
+    setIsPWA(isStandalone);
+  }, []);
+  
   // 檢查登入是否過期（一般員工超過一天自動登出）
   useEffect(() => {
     const checkLoginExpiry = () => {
@@ -516,7 +526,7 @@ const App = () => {
     setAdminSearchName('');
   };
   
-  // 下載月曆為 PNG（支援舊式手機）
+  // 下載月曆為 PNG（支援舊式手機，包括 iOS Safari）
   const downloadCalendarAsPng = async (refElement, filename) => {
     if (!refElement.current) return;
     
@@ -531,34 +541,65 @@ const App = () => {
         // 舊式手機相容性設定
         allowTaint: true,
         foreignObjectRendering: false,
+        // 降低記憶體使用（舊手機）
+        imageTimeout: 15000,
+        removeContainer: true,
       });
       
-      // 將 canvas 轉換為 blob
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          alert('下載失敗，請重試');
-          setIsDownloading(false);
-          return;
+      // 使用 data URL（比 Blob URL 更好的相容性）
+      const dataUrl = canvas.toDataURL('image/png', 1.0);
+      
+      // 檢測是否為 iOS Safari（需要特殊處理）
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      
+      if (isIOS) {
+        // iOS：開啟新視窗顯示圖片，讓用戶長按保存
+        const newWindow = window.open('', '_blank');
+        if (newWindow) {
+          newWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>${filename}</title>
+              <style>
+                body { margin: 0; padding: 20px; background: #f1f5f9; text-align: center; font-family: -apple-system, sans-serif; }
+                img { max-width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+                p { color: #64748b; margin-top: 20px; font-size: 14px; }
+              </style>
+            </head>
+            <body>
+              <img src="${dataUrl}" alt="${filename}"/>
+              <p>📱 長按圖片 → 選擇「儲存圖片」</p>
+            </body>
+            </html>
+          `);
+          newWindow.document.close();
+        } else {
+          alert('請允許彈出視窗以下載圖片');
         }
-        
-        // 建立下載連結
-        const url = URL.createObjectURL(blob);
+      } else {
+        // Android 和桌面瀏覽器：使用 download 屬性
         const link = document.createElement('a');
-        link.href = url;
+        link.href = dataUrl;
         link.download = filename;
+        link.style.display = 'none';
         
         // 觸發下載
         document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
         
-        // 釋放 URL
-        URL.revokeObjectURL(url);
-        setIsDownloading(false);
-      }, 'image/png', 1.0);
+        // 使用 setTimeout 確保 DOM 更新（舊版 Android 相容）
+        setTimeout(() => {
+          link.click();
+          document.body.removeChild(link);
+        }, 100);
+      }
+      
+      setIsDownloading(false);
     } catch (error) {
       console.error('下載失敗:', error);
-      alert('下載失敗，請重試');
+      alert('下載失敗，請重試。如果問題持續，請截圖保存。');
       setIsDownloading(false);
     }
   };
@@ -709,8 +750,8 @@ const App = () => {
                   {/* 上個月跨月日期 */}
                   {prevMonthDates.map((d) => (
                     <div key={`prev-${d}`} className="aspect-square rounded-xl flex flex-col items-center justify-center border border-slate-50 bg-slate-50/50 shadow-sm">
-                      <span className="text-xs font-bold text-slate-300">{prevMonth}月</span>
-                      <span className="text-2xl font-bold leading-none text-slate-300">{d}</span>
+                      <span className="text-[10px] font-bold text-slate-300">{prevMonth}月</span>
+                      <span className={`${isPWA ? 'text-lg' : 'text-2xl'} font-bold leading-none text-slate-300`}>{d}</span>
                     </div>
                   ))}
                   {/* 當月日期 */}
@@ -728,8 +769,8 @@ const App = () => {
                       const displayStatus = isNonStatLeave ? status : '';
                       return (
                         <div key={d} className={`aspect-square rounded-xl flex flex-col items-center justify-center border ${isNonStatLeave ? `${config.border} ${config.bg}` : 'border-slate-100 bg-white'} shadow-sm`}>
-                          <span className={`text-4xl font-black leading-none ${isNonStatLeave ? config.text : 'text-slate-950'}`}>{d}</span>
-                          {displayStatus && <span className={`text-base font-bold mt-1 ${config.text}`}>{displayStatus}</span>}
+                          <span className={`${isPWA ? 'text-xl' : 'text-4xl'} font-black leading-none ${isNonStatLeave ? config.text : 'text-slate-950'}`}>{d}</span>
+                          {displayStatus && <span className={`${isPWA ? 'text-[10px]' : 'text-base'} font-bold ${isPWA ? 'mt-0.5' : 'mt-1'} ${config.text}`}>{displayStatus}</span>}
                         </div>
                       );
                     }
@@ -738,16 +779,16 @@ const App = () => {
                     const displayStatus = isLeave ? status : '';
                     return (
                       <div key={d} className={`aspect-square rounded-xl flex flex-col items-center justify-center border ${isInLeaveMap ? `${config.border} ${config.bg}` : 'border-slate-100 bg-white'} shadow-sm`}>
-                        <span className={`text-4xl font-black leading-none ${isInLeaveMap ? config.text : 'text-slate-950'}`}>{d}</span>
-                        {displayStatus && <span className={`text-base font-bold mt-1 ${isInLeaveMap ? config.text : 'text-slate-600'}`}>{displayStatus}</span>}
+                        <span className={`${isPWA ? 'text-xl' : 'text-4xl'} font-black leading-none ${isInLeaveMap ? config.text : 'text-slate-950'}`}>{d}</span>
+                        {displayStatus && <span className={`${isPWA ? 'text-[10px]' : 'text-base'} font-bold ${isPWA ? 'mt-0.5' : 'mt-1'} ${isInLeaveMap ? config.text : 'text-slate-600'}`}>{displayStatus}</span>}
                       </div>
                     );
                   })}
                   {/* 下個月跨月日期 */}
                   {nextMonthDates.map((d) => (
                     <div key={`next-${d}`} className="aspect-square rounded-xl flex flex-col items-center justify-center border border-slate-50 bg-slate-50/50 shadow-sm">
-                      <span className="text-xs font-bold text-slate-300">{nextMonth}月</span>
-                      <span className="text-2xl font-bold leading-none text-slate-300">{d}</span>
+                      <span className="text-[10px] font-bold text-slate-300">{nextMonth}月</span>
+                      <span className={`${isPWA ? 'text-lg' : 'text-2xl'} font-bold leading-none text-slate-300`}>{d}</span>
                     </div>
                   ))}
                 </div>
@@ -899,8 +940,8 @@ const App = () => {
                 {/* 上個月跨月日期 */}
                 {prevMonthDates.map((d) => (
                   <div key={`prev-log-${d}`} className="aspect-square rounded-xl flex flex-col items-center justify-center border border-slate-50 bg-slate-50/50 shadow-sm">
-                    <span className="text-xs font-bold text-slate-300">{prevMonth}月</span>
-                    <span className="text-2xl font-bold leading-none text-slate-300">{d}</span>
+                    <span className="text-[10px] font-bold text-slate-300">{prevMonth}月</span>
+                    <span className={`${isPWA ? 'text-lg' : 'text-2xl'} font-bold leading-none text-slate-300`}>{d}</span>
                   </div>
                 ))}
                 {/* 當月日期 */}
@@ -912,16 +953,16 @@ const App = () => {
                   const config = COLOR_CONFIG[status] || (isLeave ? COLOR_CONFIG["事"] : COLOR_CONFIG["上班"]);
                   return (
                     <div key={d} className={`aspect-square rounded-xl flex flex-col items-center justify-center border transition-all ${isLeave ? `${config.bg} ${config.border} shadow-md` : 'bg-white border-slate-100'}`}>
-                      <span className={`text-5xl font-black leading-none ${isLeave ? config.text : 'text-slate-950'}`}>{d}</span>
-                      {isLeave && <span className={`text-base font-bold mt-1 ${config.text}`}>{status}</span>}
+                      <span className={`${isPWA ? 'text-xl' : 'text-5xl'} font-black leading-none ${isLeave ? config.text : 'text-slate-950'}`}>{d}</span>
+                      {isLeave && <span className={`${isPWA ? 'text-[10px]' : 'text-base'} font-bold ${isPWA ? 'mt-0.5' : 'mt-1'} ${config.text}`}>{status}</span>}
                     </div>
                   );
                 })}
                 {/* 下個月跨月日期 */}
                 {nextMonthDates.map((d) => (
                   <div key={`next-log-${d}`} className="aspect-square rounded-xl flex flex-col items-center justify-center border border-slate-50 bg-slate-50/50 shadow-sm">
-                    <span className="text-xs font-bold text-slate-300">{nextMonth}月</span>
-                    <span className="text-2xl font-bold leading-none text-slate-300">{d}</span>
+                    <span className="text-[10px] font-bold text-slate-300">{nextMonth}月</span>
+                    <span className={`${isPWA ? 'text-lg' : 'text-2xl'} font-bold leading-none text-slate-300`}>{d}</span>
                   </div>
                 ))}
                 </div>
