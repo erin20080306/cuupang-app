@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import html2canvas from 'html2canvas';
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -17,7 +18,8 @@ import {
   FileEdit,
   Loader2,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  Download
 } from 'lucide-react';
 import { 
   verifyLogin,
@@ -65,6 +67,12 @@ const App = () => {
   const [loginLoading, setLoginLoading] = useState(false);
   const [showSheetModal, setShowSheetModal] = useState(false);
   const [modalType, setModalType] = useState('schedule');
+  const [isDownloading, setIsDownloading] = useState(false);
+  
+  // 月曆區域的 ref（用於下載 PNG）
+  const calendarRef = useRef(null);
+  const recordsCalendarRef = useRef(null);
+  const leaveStatsRef = useRef(null);
   
   // 管理員模式狀態
   const [isAdminMode, setIsAdminMode] = useState(false);
@@ -501,6 +509,53 @@ const App = () => {
     localStorage.removeItem('loginTime');
     localStorage.removeItem('user');
   };
+  
+  // 下載月曆為 PNG（支援舊式手機）
+  const downloadCalendarAsPng = async (refElement, filename) => {
+    if (!refElement.current) return;
+    
+    setIsDownloading(true);
+    try {
+      // 使用 html2canvas 將元素轉換為 canvas
+      const canvas = await html2canvas(refElement.current, {
+        backgroundColor: '#ffffff',
+        scale: 2, // 提高解析度
+        useCORS: true,
+        logging: false,
+        // 舊式手機相容性設定
+        allowTaint: true,
+        foreignObjectRendering: false,
+      });
+      
+      // 將 canvas 轉換為 blob
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          alert('下載失敗，請重試');
+          setIsDownloading(false);
+          return;
+        }
+        
+        // 建立下載連結
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        
+        // 觸發下載
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // 釋放 URL
+        URL.revokeObjectURL(url);
+        setIsDownloading(false);
+      }, 'image/png', 1.0);
+    } catch (error) {
+      console.error('下載失敗:', error);
+      alert('下載失敗，請重試');
+      setIsDownloading(false);
+    }
+  };
 
   const renderDashboard = () => {
     const year = pickYearFromISO(sheetData.schedule?.headersISO);
@@ -613,50 +668,61 @@ const App = () => {
                 <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
                   <CalendarIcon size={20} className="text-blue-600" /> 班表
                 </h3>
-                <button onClick={() => {setModalType('schedule'); setShowSheetModal(true);}} 
-                  className="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1">
-                  <Maximize2 size={12}/> 原始表格
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => downloadCalendarAsPng(calendarRef, `班表_${user.name}_${year}年${selectedMonth}月.png`)}
+                    disabled={isDownloading}
+                    className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 disabled:opacity-50">
+                    {isDownloading ? <Loader2 size={12} className="animate-spin"/> : <Download size={12}/>} 下載
+                  </button>
+                  <button onClick={() => {setModalType('schedule'); setShowSheetModal(true);}} 
+                    className="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1">
+                    <Maximize2 size={12}/> 原始表格
+                  </button>
+                </div>
               </div>
               {sheetData.schedule.rows.length === 0 && (
                 <div className="mb-4 p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-xs font-bold">
                   找不到「班表」資料（可能分頁名稱不同，或該分頁沒有你的姓名資料列）
                 </div>
               )}
-              <div className="grid grid-cols-7 gap-2">
-                {['日','一','二','三','四','五','六'].map(w => (
-                  <div key={w} className="text-center text-xs font-bold text-slate-400 py-1">{w}</div>
-                ))}
-                {Array(firstDayOfWeek).fill(null).map((_, i) => <div key={`empty-${i}`} />)}
-                {daysArray.map((d) => {
-                  const status = getDailyStatus(user.name, d);
-                  const trimmedStatus = String(status || '').trim();
-                  const isLeave = trimmedStatus && trimmedStatus !== '上班';
-                  // 判斷是否為假別統計中的假（用底色顯示）
-                  const isInLeaveMap = Object.keys(leaveMap).find(type => leaveMap[type].includes(d));
-                  const config = COLOR_CONFIG[status] || (isLeave ? COLOR_CONFIG["事"] : COLOR_CONFIG["上班"]);
-                  
-                  // TAO1 班表：只顯示非假別統計的假（例如休、例假等）
-                  if (user.warehouse === 'TAO1') {
-                    const isNonStatLeave = isLeave && !isInLeaveMap;
-                    const displayStatus = isNonStatLeave ? status : '';
+              <div ref={calendarRef} className="bg-white p-2">
+                <div className="text-center mb-3 text-sm font-bold text-slate-600">{user.name} - {year}年{selectedMonth}月 班表</div>
+                <div className="grid grid-cols-7 gap-2">
+                  {['日','一','二','三','四','五','六'].map(w => (
+                    <div key={w} className="text-center text-xs font-bold text-slate-400 py-1">{w}</div>
+                  ))}
+                  {Array(firstDayOfWeek).fill(null).map((_, i) => <div key={`empty-${i}`} />)}
+                  {daysArray.map((d) => {
+                    const status = getDailyStatus(user.name, d);
+                    const trimmedStatus = String(status || '').trim();
+                    const isLeave = trimmedStatus && trimmedStatus !== '上班';
+                    // 判斷是否為假別統計中的假（用底色顯示）
+                    const isInLeaveMap = Object.keys(leaveMap).find(type => leaveMap[type].includes(d));
+                    const config = COLOR_CONFIG[status] || (isLeave ? COLOR_CONFIG["事"] : COLOR_CONFIG["上班"]);
+                    
+                    // TAO1 班表：只顯示非假別統計的假（例如休、例假等）
+                    if (user.warehouse === 'TAO1') {
+                      const isNonStatLeave = isLeave && !isInLeaveMap;
+                      const displayStatus = isNonStatLeave ? status : '';
+                      return (
+                        <div key={d} className={`aspect-square rounded-xl flex flex-col items-center justify-center border ${isNonStatLeave ? `${config.border} ${config.bg}` : 'border-slate-100 bg-white'} shadow-sm`}>
+                          <span className={`text-4xl font-black leading-none ${isNonStatLeave ? config.text : 'text-slate-950'}`}>{d}</span>
+                          {displayStatus && <span className={`text-base font-bold mt-1 ${config.text}`}>{displayStatus}</span>}
+                        </div>
+                      );
+                    }
+                    
+                    // 其他倉：顯示所有非「上班」和非空白的狀態
+                    const displayStatus = isLeave ? status : '';
                     return (
-                      <div key={d} className={`aspect-square rounded-xl flex flex-col items-center justify-center border ${isNonStatLeave ? `${config.border} ${config.bg}` : 'border-slate-100 bg-white'} shadow-sm`}>
-                        <span className={`text-4xl font-black leading-none ${isNonStatLeave ? config.text : 'text-slate-950'}`}>{d}</span>
-                        {displayStatus && <span className={`text-base font-bold mt-1 ${config.text}`}>{displayStatus}</span>}
+                      <div key={d} className={`aspect-square rounded-xl flex flex-col items-center justify-center border ${isInLeaveMap ? `${config.border} ${config.bg}` : 'border-slate-100 bg-white'} shadow-sm`}>
+                        <span className={`text-4xl font-black leading-none ${isInLeaveMap ? config.text : 'text-slate-950'}`}>{d}</span>
+                        {displayStatus && <span className={`text-base font-bold mt-1 ${isInLeaveMap ? config.text : 'text-slate-600'}`}>{displayStatus}</span>}
                       </div>
                     );
-                  }
-                  
-                  // 其他倉：顯示所有非「上班」和非空白的狀態
-                  const displayStatus = isLeave ? status : '';
-                  return (
-                    <div key={d} className={`aspect-square rounded-xl flex flex-col items-center justify-center border ${isInLeaveMap ? `${config.border} ${config.bg}` : 'border-slate-100 bg-white'} shadow-sm`}>
-                      <span className={`text-4xl font-black leading-none ${isInLeaveMap ? config.text : 'text-slate-950'}`}>{d}</span>
-                      {displayStatus && <span className={`text-base font-bold mt-1 ${isInLeaveMap ? config.text : 'text-slate-600'}`}>{displayStatus}</span>}
-                    </div>
-                  );
-                })}
+                  })}
+                </div>
               </div>
             </section>
           )}
@@ -708,11 +774,20 @@ const App = () => {
           {/* 3. 假別統計 */}
           {activeTab === 'leaves' && (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
-                <ClipboardList size={24} className="text-blue-600" />
-                <h3 className="text-xl font-black text-slate-900">假別統計</h3>
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <ClipboardList size={24} className="text-blue-600" />
+                  <h3 className="text-xl font-black text-slate-900">假別統計</h3>
+                </div>
+                <button 
+                  onClick={() => downloadCalendarAsPng(leaveStatsRef, `假別統計_${user.name}_${year}年${selectedMonth}月.png`)}
+                  disabled={isDownloading || Object.keys(leaveMap).length === 0}
+                  className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 disabled:opacity-50">
+                  {isDownloading ? <Loader2 size={12} className="animate-spin"/> : <Download size={12}/>} 下載
+                </button>
               </div>
-              <div className="p-5">
+              <div ref={leaveStatsRef} className="p-5 bg-white">
+                <div className="text-center mb-3 text-sm font-bold text-slate-600">{user.name} - {year}年{selectedMonth}月 假別統計</div>
                 {Object.keys(leaveMap).length === 0 ? (
                   <div className="text-center text-slate-400 py-10">本月無請假記錄</div>
                 ) : (
@@ -760,17 +835,27 @@ const App = () => {
                   </div>
                   <h3 className="text-xl font-black text-slate-900">出勤記錄表</h3>
                 </div>
-                <button onClick={() => {setModalType('records'); setShowSheetModal(true);}} 
-                  className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1">
-                  <Maximize2 size={14}/> 原始樣式
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => downloadCalendarAsPng(recordsCalendarRef, `出勤記錄_${user.name}_${year}年${selectedMonth}月.png`)}
+                    disabled={isDownloading}
+                    className="bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 disabled:opacity-50">
+                    {isDownloading ? <Loader2 size={12} className="animate-spin"/> : <Download size={12}/>} 下載
+                  </button>
+                  <button onClick={() => {setModalType('records'); setShowSheetModal(true);}} 
+                    className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1">
+                    <Maximize2 size={14}/> 原始樣式
+                  </button>
+                </div>
               </div>
               {sheetData.records.rows.length === 0 && (
                 <div className="mb-4 p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-xs font-bold">
                   找不到「出勤記錄」資料（可能分頁名稱不同，或該分頁沒有你的姓名資料列）
                 </div>
               )}
-              <div className="grid grid-cols-7 gap-2">
+              <div ref={recordsCalendarRef} className="bg-white p-2">
+                <div className="text-center mb-3 text-sm font-bold text-slate-600">{user.name} - {year}年{selectedMonth}月 出勤記錄</div>
+                <div className="grid grid-cols-7 gap-2">
                 {['日','一','二','三','四','五','六'].map(w => (
                   <div key={w} className="text-center text-xs font-bold text-slate-400 py-1">{w}</div>
                 ))}
@@ -788,6 +873,7 @@ const App = () => {
                     </div>
                   );
                 })}
+                </div>
               </div>
             </section>
           )}
