@@ -318,17 +318,27 @@ const App = () => {
         const headers = Array.isArray(parsed?.headers) ? parsed.headers : [];
         const dateCols = Array.isArray(parsed?.dateCols) ? parsed.dateCols : [];
 
-        const indices = dateCols.length
-          ? dateCols
-          : headersISO.length
-            ? headersISO.map((_, idx) => idx)
-            : headers.map((_, idx) => idx);
-
-        for (const idx of indices) {
-          const monthFromISO = headersISO[idx] ? parseMonthFromISO(headersISO[idx]) : null;
-          const month = monthFromISO ?? parseMonthFromHeaderText(headers[idx]);
-          if (month === targetMonth) return true;
+        // 優先用 headersISO 判斷（最準確）
+        let foundAnyDate = false;
+        for (let idx = 0; idx < headersISO.length; idx++) {
+          const monthFromISO = parseMonthFromISO(headersISO[idx]);
+          if (monthFromISO !== null) {
+            foundAnyDate = true;
+            if (monthFromISO === targetMonth) return true;
+          }
         }
+        if (foundAnyDate) return false; // 有日期欄位但沒有選擇月份
+
+        // 如果 headersISO 沒有日期，用 headers 文字判斷
+        for (let idx = 0; idx < headers.length; idx++) {
+          const month = parseMonthFromHeaderText(headers[idx]);
+          if (month !== null) {
+            foundAnyDate = true;
+            if (month === targetMonth) return true;
+          }
+        }
+        
+        // 如果完全找不到日期欄位，返回 false（不顯示）
         return false;
       };
 
