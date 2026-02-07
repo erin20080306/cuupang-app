@@ -753,19 +753,23 @@ const App = () => {
                 <h2 className="text-base font-bold text-slate-800">{user.name}</h2>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button onClick={() => { clearAllCache(); loadAllSheets(user.warehouse, user.name); }} 
-                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all" 
+                className="flex items-center gap-1 px-2 py-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all text-xs font-medium" 
                 title="重新載入（清除快取）">
-                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                <span>重整</span>
               </button>
               <button onClick={openGoogleSheet} 
-                className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-xl transition-all" 
+                className="flex items-center gap-1 px-2 py-1.5 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all text-xs font-medium" 
                 title="開啟 Google Sheet">
-                <ExternalLink size={18} />
+                <ExternalLink size={14} />
+                <span>表單</span>
               </button>
-              <button onClick={handleLogout} className="text-slate-300 hover:text-red-500">
-                <LogOut size={22}/>
+              <button onClick={handleLogout} 
+                className="flex items-center gap-1 px-2 py-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all text-xs font-medium">
+                <LogOut size={14}/>
+                <span>登出</span>
               </button>
             </div>
           </div>
