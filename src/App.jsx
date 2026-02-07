@@ -786,17 +786,21 @@ const App = () => {
                       birthday: '',
                       isAdmin: true
                     };
-                    // 先清空舊資料，避免混合
+                    // 先清空舊資料和快取，避免混合
+                    clearAllCache();
                     setSheetData({
                       schedule: { headers: [], rows: [], dateCols: [], headersISO: [] },
                       attendance: { headers: [], rows: [], dateCols: [], headersISO: [] },
                       records: { headers: [], rows: [], dateCols: [], headersISO: [] },
                       adjustment: { headers: [], rows: [], dateCols: [], headersISO: [] },
                     });
-                    setUser(userData);
+                    setResolvedSheets({ schedule: '', attendance: '', records: '', adjustment: '' });
+                    setSheetNames([]);
                     e.target.searchName.value = '';
-                    clearAllCache();
-                    loadAllSheets(userData.warehouse, userData.name);
+                    // 設定新用戶，useEffect 會自動觸發 loadAllSheets
+                    setUser(userData);
+                    localStorage.setItem('loginTime', String(Date.now()));
+                    localStorage.setItem('user', JSON.stringify(userData));
                   } else {
                     setLoginError(result.error || '找不到此人員');
                   }
