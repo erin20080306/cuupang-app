@@ -225,36 +225,46 @@ const App = () => {
         return type === 'attendance';
       });
 
-      // 其他類型分頁按優先級取最高的
-      const otherSheets = names
-        .map(sheetName => ({
-          sheetName,
-          type: classifySheet(sheetName),
-          priority: classifySheet(sheetName) ? getSheetPriority(sheetName, classifySheet(sheetName)) : -1
-        }))
-        .filter(s => s.type !== null && s.type !== 'attendance')
-        .sort((a, b) => b.priority - a.priority);
+      const scheduleSheets = names.filter(n => classifySheet(n) === 'schedule');
+      const recordSheets = names.filter(n => classifySheet(n) === 'records');
+      const adjustmentSheets = names.filter(n => classifySheet(n) === 'adjustment');
 
-      const sheetsToFetch = {};
-      for (const { sheetName, type, priority } of otherSheets) {
-        // 載入所有分頁，之後根據資料內容過濾
-        if (!sheetsToFetch[type] || priority > sheetsToFetch[type].priority) {
-          sheetsToFetch[type] = { sheetName, priority };
-        }
-      }
-
-      // 並行抓取非出勤時數的分頁
-      const otherFetchPromises = Object.entries(sheetsToFetch).map(async ([type, { sheetName }]) => {
-        try {
-          const raw = await getSheetData(warehouse, sheetName, '', { birthday: userBirthday });
-          const parsed = parseSheetData(raw);
-          const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
-          return { type, sheetName, parsed, matched, hasUserData: matched.length > 0 };
-        } catch (e) {
-          console.warn(`抓取分頁 ${sheetName} 失敗:`, e);
-          return { type, sheetName, parsed: null, matched: [], hasUserData: false };
-        }
-      });
+      // 並行抓取非出勤時數的分頁（班表/出勤記錄抓取全部分頁，避免只取到錯誤月份）
+      const otherFetchPromises = [
+        ...scheduleSheets.map(async (sheetName) => {
+          try {
+            const raw = await getSheetData(warehouse, sheetName, '', { birthday: userBirthday });
+            const parsed = parseSheetData(raw);
+            const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
+            return { type: 'schedule', sheetName, parsed, matched, hasUserData: matched.length > 0 };
+          } catch (e) {
+            console.warn(`抓取分頁 ${sheetName} 失敗:`, e);
+            return { type: 'schedule', sheetName, parsed: null, matched: [], hasUserData: false };
+          }
+        }),
+        ...recordSheets.map(async (sheetName) => {
+          try {
+            const raw = await getSheetData(warehouse, sheetName, '', { birthday: userBirthday });
+            const parsed = parseSheetData(raw);
+            const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
+            return { type: 'records', sheetName, parsed, matched, hasUserData: matched.length > 0 };
+          } catch (e) {
+            console.warn(`抓取分頁 ${sheetName} 失敗:`, e);
+            return { type: 'records', sheetName, parsed: null, matched: [], hasUserData: false };
+          }
+        }),
+        ...adjustmentSheets.slice(0, 1).map(async (sheetName) => {
+          try {
+            const raw = await getSheetData(warehouse, sheetName, '', { birthday: userBirthday });
+            const parsed = parseSheetData(raw);
+            const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
+            return { type: 'adjustment', sheetName, parsed, matched, hasUserData: matched.length > 0 };
+          } catch (e) {
+            console.warn(`抓取分頁 ${sheetName} 失敗:`, e);
+            return { type: 'adjustment', sheetName, parsed: null, matched: [], hasUserData: false };
+          }
+        })
+      ];
 
       // 並行抓取所有出勤時數分頁
       const attendanceFetchPromises = attendanceSheets.map(async (sheetName) => {
@@ -279,17 +289,47 @@ const App = () => {
       const sheetsWithUserData = {};
       const targetMonth = parseInt(monthStr, 10);
 
-      // 從表頭中提取月份（班表表頭實際是年月日格式，如 2026/2/1, 2026/2/2 等）
-      const extractMonthFromHeaders = (headers) => {
-        for (const header of headers) {
-          const h = String(header || '').trim();
-          // 嘗試匹配 YYYY/M/D 或 YYYY-M-D 格式（如 2026/2/1）
-          let match = h.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-          if (match) {
-            return parseInt(match[2], 10); // 返回月份
-          }
+      const parseMonthFromISO = (iso) => {
+        const s = String(iso || '').trim();
+        const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!m) return null;
+        const month = parseInt(m[2], 10);
+        if (month >= 1 && month <= 12) return month;
+        return null;
+      };
+
+      const parseMonthFromHeaderText = (header) => {
+        const h = String(header || '').trim();
+        const m1 = h.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+        if (m1) {
+          const month = parseInt(m1[2], 10);
+          if (month >= 1 && month <= 12) return month;
+        }
+        const m2 = h.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+        if (m2) {
+          const month = parseInt(m2[1], 10);
+          if (month >= 1 && month <= 12) return month;
         }
         return null;
+      };
+
+      const hasSelectedMonthInColumns = (parsed) => {
+        const headersISO = Array.isArray(parsed?.headersISO) ? parsed.headersISO : [];
+        const headers = Array.isArray(parsed?.headers) ? parsed.headers : [];
+        const dateCols = Array.isArray(parsed?.dateCols) ? parsed.dateCols : [];
+
+        const indices = dateCols.length
+          ? dateCols
+          : headersISO.length
+            ? headersISO.map((_, idx) => idx)
+            : headers.map((_, idx) => idx);
+
+        for (const idx of indices) {
+          const monthFromISO = headersISO[idx] ? parseMonthFromISO(headersISO[idx]) : null;
+          const month = monthFromISO ?? parseMonthFromHeaderText(headers[idx]);
+          if (month === targetMonth) return true;
+        }
+        return false;
       };
 
       // 檢查資料是否屬於選擇的月份
@@ -298,42 +338,42 @@ const App = () => {
         
         // 對於班表，檢查表頭中的日期
         if (type === 'schedule') {
-          const headerMonth = extractMonthFromHeaders(parsed.headers || []);
-          if (headerMonth !== null) {
-            return headerMonth === targetMonth;
-          }
+          return hasSelectedMonthInColumns(parsed);
         }
         
         // 對於出勤記錄，檢查資料列中的日期
         if (type === 'records') {
+          if (hasSelectedMonthInColumns(parsed)) return true;
           for (const row of (parsed.rows || [])) {
             const rowMonth = extractMonthFromRow(row, parsed.headers || []);
             if (rowMonth === targetMonth) return true;
           }
-          // 如果沒有資料列或無法判斷，返回 false
           return false;
         }
         
         return true;
       };
 
-      for (const { type, sheetName, parsed, matched, hasUserData } of otherResults) {
-        if (!parsed) continue;
-        
-        const rows = hasUserData ? matched : parsed.rows;
-        
-        // 對於班表和出勤記錄，根據資料中的日期過濾
-        if (type === 'schedule' || type === 'records') {
-          if (!hasDataForSelectedMonth(parsed, type)) {
-            // 資料不屬於選擇的月份，跳過
-            continue;
-          }
-        }
-        
-        if (rows.length > 0 || type === 'adjustment') {
-          resolvedNames[type] = sheetName;
-          sheetsWithUserData[type] = { ...parsed, rows };
-        }
+      const scheduleCandidates = otherResults.filter(r => r.type === 'schedule' && r.parsed && r.hasUserData && hasDataForSelectedMonth(r.parsed, 'schedule'));
+      const recordsCandidates = otherResults.filter(r => r.type === 'records' && r.parsed && r.hasUserData && hasDataForSelectedMonth(r.parsed, 'records'));
+      const adjustmentCandidate = otherResults.find(r => r.type === 'adjustment' && r.parsed);
+
+      if (scheduleCandidates.length > 0) {
+        const { sheetName, parsed, matched } = scheduleCandidates[0];
+        resolvedNames.schedule = sheetName;
+        sheetsWithUserData.schedule = { ...parsed, rows: matched };
+      }
+
+      if (recordsCandidates.length > 0) {
+        const { sheetName, parsed, matched } = recordsCandidates[0];
+        resolvedNames.records = sheetName;
+        sheetsWithUserData.records = { ...parsed, rows: matched };
+      }
+
+      if (adjustmentCandidate) {
+        const { sheetName, parsed, matched, hasUserData } = adjustmentCandidate;
+        resolvedNames.adjustment = sheetName;
+        sheetsWithUserData.adjustment = { ...parsed, rows: hasUserData ? matched : parsed.rows };
       }
 
       // 整理出勤時數結果：合併所有分頁中屬於選擇月份的資料
@@ -619,7 +659,8 @@ const App = () => {
   };
 
   const renderDashboard = () => {
-    const year = pickYearFromISO(sheetData.schedule?.headersISO);
+    const isoForYear = (sheetData.schedule?.headersISO?.length ? sheetData.schedule.headersISO : sheetData.records?.headersISO);
+    const year = pickYearFromISO(isoForYear);
     const daysInMonth = new Date(year, selectedMonth, 0).getDate();
     const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
     const firstDayOfWeek = new Date(year, selectedMonth - 1, 1).getDay();
@@ -731,8 +772,13 @@ const App = () => {
 
         <main className="p-4 space-y-6">
           
-          {/* 1. 班表月曆 - 沒有資料時不顯示 */}
-          {activeTab === 'calendar' && sheetData.schedule.rows.length > 0 && (
+          {/* 1. 班表月曆 */}
+          {activeTab === 'calendar' && (
+            sheetData.schedule.rows.length === 0 ? (
+              <div className="bg-slate-100 border border-slate-200 rounded-2xl p-8 text-center">
+                <p className="text-slate-500 font-bold text-lg">📅 {selectedMonth}月本月系統無資料</p>
+              </div>
+            ) : (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 overflow-hidden">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
@@ -804,7 +850,7 @@ const App = () => {
                 </div>
               </div>
             </section>
-          )}
+          ))}
 
           {/* 2. 工時明細 */}
           {activeTab === 'attendance' && (
@@ -916,8 +962,13 @@ const App = () => {
             </section>
           )}
 
-          {/* 4. 出勤記錄 - 只有 TAO1 倉顯示，沒有資料時不顯示 */}
-          {activeTab === 'logs' && user.warehouse === 'TAO1' && sheetData.records.rows.length > 0 && (
+          {/* 4. 出勤記錄 - 只有 TAO1 倉顯示 */}
+          {activeTab === 'logs' && user.warehouse === 'TAO1' && (
+            sheetData.records.rows.length === 0 ? (
+              <div className="bg-slate-100 border border-slate-200 rounded-2xl p-8 text-center">
+                <p className="text-slate-500 font-bold text-lg">📋 {selectedMonth}月本月系統無資料</p>
+              </div>
+            ) : (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
@@ -977,7 +1028,7 @@ const App = () => {
                 </div>
               </div>
             </section>
-          )}
+          ))}
 
           {/* 5. 調假名單 - 只有 TAO1 倉顯示，沒有資料時不顯示 */}
           {activeTab === 'adjustment' && user.warehouse === 'TAO1' && sheetData.adjustment.rows.length > 0 && (
