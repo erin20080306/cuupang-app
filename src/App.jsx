@@ -81,6 +81,7 @@ const App = () => {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [adminSearchName, setAdminSearchName] = useState('');
   
+    
   // 檢測是否為手機 PWA 模式（手機安裝後開啟）
   const [isPWA, setIsPWA] = useState(false);
   useEffect(() => {
@@ -762,6 +763,7 @@ const App = () => {
             </div>
           )}
           
+                    
           {/* 管理員查詢人員區 */}
           {user.isAdmin && (
             <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-xl">
@@ -1152,11 +1154,11 @@ const App = () => {
 
         {/* 底部導覽 */}
         <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-200 flex justify-around py-6 shadow-xl z-50 px-4">
-          <NavBtn active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} icon={<CalendarIcon size={22}/>} label="班表" />
-          <NavBtn active={activeTab === 'attendance'} onClick={() => setActiveTab('attendance')} icon={<Clock size={22}/>} label="工時" />
-          <NavBtn active={activeTab === 'leaves'} onClick={() => setActiveTab('leaves')} icon={<TableIcon size={22}/>} label="統計" />
-          {user.warehouse === 'TAO1' && <NavBtn active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} icon={<Fingerprint size={22}/>} label="出勤記錄表" />}
-          {user.warehouse === 'TAO1' && <NavBtn active={activeTab === 'adjustment'} onClick={() => setActiveTab('adjustment')} icon={<FileEdit size={22}/>} label="調假" />}
+          <NavBtn active={activeTab === 'calendar'} onClick={() => { clearAllCache(); setActiveTab('calendar'); }} icon={<CalendarIcon size={22}/>} label="班表" />
+          <NavBtn active={activeTab === 'attendance'} onClick={() => { clearAllCache(); setActiveTab('attendance'); }} icon={<Clock size={22}/>} label="工時" />
+          <NavBtn active={activeTab === 'leaves'} onClick={() => { clearAllCache(); setActiveTab('leaves'); }} icon={<TableIcon size={22}/>} label="統計" />
+          {user.warehouse === 'TAO1' && <NavBtn active={activeTab === 'logs'} onClick={() => { clearAllCache(); setActiveTab('logs'); }} icon={<Fingerprint size={22}/>} label="出勤記錄表" />}
+          {user.warehouse === 'TAO1' && <NavBtn active={activeTab === 'adjustment'} onClick={() => { clearAllCache(); setActiveTab('adjustment'); }} icon={<FileEdit size={22}/>} label="調假" />}
         </nav>
 
         {/* 原始 Sheet 彈窗 */}
