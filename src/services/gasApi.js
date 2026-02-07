@@ -38,8 +38,11 @@ const cache = {
 const CACHE_TTL = {
   sheetId: 10 * 60 * 1000,    // 10 分鐘
   sheetNames: 2 * 60 * 1000,  // 2 分鐘
-  sheetData: 1 * 60 * 1000,   // 1 分鐘（縮短快取時間）
+  sheetData: 1 * 60 * 1000,   // 1 分鐘
 };
+
+const FETCH_TIMEOUT = 15000; // 15 秒超時
+const BATCH_SIZE = 4; // 每批同時請求 4 個分頁
 
 /**
  * 建立 API URL
@@ -88,12 +91,16 @@ function extractGasUserHtmlPayload(htmlText) {
  */
 async function fetchApi(url) {
   try {
-    // 使用 fetch 並跟隨重定向
+    // 使用 fetch 並跟隨重定向（加入超時）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
     const response = await fetch(url, {
       method: 'GET',
       redirect: 'follow',
       mode: 'cors',
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -551,8 +558,8 @@ export async function getBatchSheetData(warehouse, sheetNames, options = {}) {
     return results;
   }
 
-  // 並行請求所有需要的分頁
-  const fetchPromises = sheetsToFetch.map(async (sheetName) => {
+  // 分批並行請求（每批 BATCH_SIZE 個，避免 GAS 過載）
+  const fetchOne = async (sheetName) => {
     try {
       const url = buildUrl(gasUrl, {
         mode: 'api',
@@ -570,9 +577,14 @@ export async function getBatchSheetData(warehouse, sheetNames, options = {}) {
     } catch (e) {
       return { sheetName, result: null, error: e.message };
     }
-  });
+  };
 
-  const fetchResults = await Promise.all(fetchPromises);
+  const fetchResults = [];
+  for (let i = 0; i < sheetsToFetch.length; i += BATCH_SIZE) {
+    const batch = sheetsToFetch.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.all(batch.map(fetchOne));
+    fetchResults.push(...batchResults);
+  }
   
   for (const { sheetName, result, error } of fetchResults) {
     if (!error && result) {

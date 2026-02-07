@@ -237,14 +237,14 @@ const App = () => {
       const attendanceSheets = sortByMonthPriority(names.filter(n => classifySheet(n) === 'attendance'));
       const scheduleSheets = sortByMonthPriority(names.filter(n => classifySheet(n) === 'schedule'));
       const recordSheets = sortByMonthPriority(names.filter(n => classifySheet(n) === 'records'));
-      const adjustmentSheets = names.filter(n => classifySheet(n) === 'adjustment').slice(0, 1);
+      const adjustmentSheets = names.filter(n => classifySheet(n) === 'adjustment');
 
       // 合併所有需要載入的分頁名稱
       const allSheetNames = [
         ...scheduleSheets,
         ...recordSheets,
         ...attendanceSheets,
-        ...adjustmentSheets.slice(0, 1)
+        ...adjustmentSheets
       ];
 
       // 一次性批量請求所有分頁資料
@@ -272,7 +272,7 @@ const App = () => {
         }
       }
 
-      for (const sheetName of adjustmentSheets.slice(0, 1)) {
+      for (const sheetName of adjustmentSheets) {
         const raw = batchData[sheetName];
         if (raw) {
           const parsed = parseSheetData(raw);
