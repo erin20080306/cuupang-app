@@ -249,10 +249,8 @@ const App = () => {
       ];
 
       const initialSheetNames = Array.from(new Set([
-        ...schedulePriority.slice(0, 2),
-        ...recordPriority.slice(0, 1),
-        ...attendancePriority.slice(0, 2),
-        ...adjustmentPriority.slice(0, 1),
+        ...schedulePriority.slice(0, 1),
+        ...attendancePriority.slice(0, 1),
       ].filter(Boolean)));
 
       const remainingSheetNames = allSheetNames.filter(n => !initialSheetNames.includes(n));

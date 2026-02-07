@@ -41,8 +41,8 @@ const CACHE_TTL = {
   sheetData: 1 * 60 * 1000,   // 1 分鐘
 };
 
-const FETCH_TIMEOUT = 15000; // 15 秒超時
-const BATCH_SIZE = 4; // 每批同時請求 4 個分頁
+const FETCH_TIMEOUT = 10000; // 10 秒超時
+const BATCH_SIZE = 6; // 每批同時請求 6 個分頁
 
 /**
  * 建立 API URL
