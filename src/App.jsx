@@ -133,6 +133,7 @@ const App = () => {
     records: { headers: [], rows: [], dateCols: [], headersISO: [] },
     adjustment: { headers: [], rows: [], dateCols: [], headersISO: [] },
   });
+  const [loadedResults, setLoadedResults] = useState(null);
   const [dataError, setDataError] = useState(null);
 
   const leaveKeywords = ["生理", "事", "特休", "病", "上休(曠)", "下休(曠)", "例休", "國出", "(上休)事", "(下休)事", "(上休)病", "(下休)病", "(上休)生理", "(下休)生理", "(上休)曠", "(下休)曠"];
@@ -180,7 +181,6 @@ const App = () => {
 
       const userBirthday = String(user?.birthday || '').trim();
       const targetN = normalizeName(String(userName || '').trim());
-      const monthStr = String(selectedMonth);
 
       // 分類分頁類型的函數
       const classifySheet = (sheetName) => {
@@ -212,31 +212,10 @@ const App = () => {
         return null;
       };
 
-      // 計算分頁優先級（月份匹配度）- 所有分頁都載入，之後根據資料內容過濾
-      const getSheetPriority = (sheetName, type) => {
-        const n = String(sheetName || '');
-        // 優先級：精確月份匹配 > 本月 > 無月份標記
-        if (n.includes(`${monthStr}月`)) return 3;
-        if (n.includes('本月')) return 2;
-        // 所有類型都接受，會根據資料內容過濾
-        return 1;
-      };
-
-      // 根據分頁名稱中的月份排序，優先抓取匹配的分頁
-      const sortByMonthPriority = (sheets) => {
-        return [...sheets].sort((a, b) => {
-          const aHasMonth = a.includes(`${monthStr}月`);
-          const bHasMonth = b.includes(`${monthStr}月`);
-          if (aHasMonth && !bHasMonth) return -1;
-          if (!aHasMonth && bHasMonth) return 1;
-          return 0;
-        });
-      };
-
-      // 篩選並排序分頁
-      const attendanceSheets = sortByMonthPriority(names.filter(n => classifySheet(n) === 'attendance'));
-      const scheduleSheets = sortByMonthPriority(names.filter(n => classifySheet(n) === 'schedule'));
-      const recordSheets = sortByMonthPriority(names.filter(n => classifySheet(n) === 'records'));
+      // 篩選分頁
+      const attendanceSheets = names.filter(n => classifySheet(n) === 'attendance');
+      const scheduleSheets = names.filter(n => classifySheet(n) === 'schedule');
+      const recordSheets = names.filter(n => classifySheet(n) === 'records');
       const adjustmentSheets = names.filter(n => classifySheet(n) === 'adjustment');
 
       // 合併所有需要載入的分頁名稱
@@ -290,150 +269,11 @@ const App = () => {
         }
       }
 
-      // 整理非出勤時數結果 - 根據資料中的日期過濾選擇月份的資料
-      const resolvedNames = { schedule: '', attendance: '', records: '', adjustment: '' };
-      const sheetsWithUserData = {};
-      const targetMonth = parseInt(monthStr, 10);
-
-      const parseMonthFromISO = (iso) => {
-        const s = String(iso || '').trim();
-        const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (!m) return null;
-        const month = parseInt(m[2], 10);
-        if (month >= 1 && month <= 12) return month;
-        return null;
-      };
-
-      const parseMonthFromHeaderText = (header) => {
-        const h = String(header || '').trim();
-        const m1 = h.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-        if (m1) {
-          const month = parseInt(m1[2], 10);
-          if (month >= 1 && month <= 12) return month;
-        }
-        const m2 = h.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
-        if (m2) {
-          const month = parseInt(m2[1], 10);
-          if (month >= 1 && month <= 12) return month;
-        }
-        return null;
-      };
-
-      const hasSelectedMonthInColumns = (parsed) => {
-        const headersISO = Array.isArray(parsed?.headersISO) ? parsed.headersISO : [];
-        const headers = Array.isArray(parsed?.headers) ? parsed.headers : [];
-
-        // 優先用 headersISO 判斷（最準確）
-        let foundAnyDate = false;
-        for (let idx = 0; idx < headersISO.length; idx++) {
-          const monthFromISO = parseMonthFromISO(headersISO[idx]);
-          if (monthFromISO !== null) {
-            foundAnyDate = true;
-            if (monthFromISO === targetMonth) return true;
-          }
-        }
-        if (foundAnyDate) return false;
-
-        // 如果 headersISO 沒有日期，用 headers 文字判斷
-        for (let idx = 0; idx < headers.length; idx++) {
-          const month = parseMonthFromHeaderText(headers[idx]);
-          if (month !== null) {
-            foundAnyDate = true;
-            if (month === targetMonth) return true;
-          }
-        }
-        
-        // 如果完全找不到日期欄位，返回 false（不顯示）
-        return false;
-      };
-
-      // 檢查資料是否屬於選擇的月份
-      const hasDataForSelectedMonth = (parsed, type) => {
-        if (!parsed) return false;
-        
-        // 對於班表，檢查表頭中的日期
-        if (type === 'schedule') {
-          return hasSelectedMonthInColumns(parsed);
-        }
-        
-        // 對於出勤記錄，檢查資料列中的日期
-        if (type === 'records') {
-          if (hasSelectedMonthInColumns(parsed)) return true;
-          for (const row of (parsed.rows || [])) {
-            const rowMonth = extractMonthFromRow(row, parsed.headers || []);
-            if (rowMonth === targetMonth) return true;
-          }
-          return false;
-        }
-        
-        return true;
-      };
-
-      const scheduleCandidates = otherResults.filter(r => r.type === 'schedule' && r.parsed && r.hasUserData && hasDataForSelectedMonth(r.parsed, 'schedule'));
-      const recordsCandidates = otherResults.filter(r => r.type === 'records' && r.parsed && r.hasUserData && hasDataForSelectedMonth(r.parsed, 'records'));
-      const adjustmentCandidate = otherResults.find(r => r.type === 'adjustment' && r.parsed);
-
-      if (scheduleCandidates.length > 0) {
-        const { sheetName, parsed, matched } = scheduleCandidates[0];
-        resolvedNames.schedule = sheetName;
-        sheetsWithUserData.schedule = { ...parsed, rows: matched };
-      }
-
-      if (recordsCandidates.length > 0) {
-        const { sheetName, parsed, matched } = recordsCandidates[0];
-        resolvedNames.records = sheetName;
-        sheetsWithUserData.records = { ...parsed, rows: matched };
-      }
-
-      if (adjustmentCandidate) {
-        const { sheetName, parsed, matched } = adjustmentCandidate;
-        resolvedNames.adjustment = sheetName;
-        // 只使用該人員的資料
-        sheetsWithUserData.adjustment = { ...parsed, rows: matched };
-      }
-
-      // 整理出勤時數結果：合併所有分頁中屬於選擇月份的資料
-      let attendanceHeaders = [];
-      const attendanceRows = [];
-      const attendanceSheetNames = [];
-
-      for (const { sheetName, parsed, matched } of attendanceResults) {
-        if (!parsed) continue;
-        
-        // 只使用該人員的資料
-        const rowsToCheck = matched;
-        if (attendanceHeaders.length === 0 && parsed.headers.length > 0) {
-          attendanceHeaders = parsed.headers;
-        }
-
-        for (const row of rowsToCheck) {
-          const rowMonth = extractMonthFromRow(row, parsed.headers);
-          // 如果能提取月份，只保留符合選擇月份的資料；否則全部保留
-          if (rowMonth === null || rowMonth === targetMonth) {
-            attendanceRows.push(row);
-            if (!attendanceSheetNames.includes(sheetName)) {
-              attendanceSheetNames.push(sheetName);
-            }
-          }
-        }
-      }
-
-      if (attendanceRows.length > 0) {
-        resolvedNames.attendance = attendanceSheetNames.join(', ');
-        sheetsWithUserData.attendance = {
-          headers: attendanceHeaders,
-          rows: attendanceRows,
-          dateCols: [],
-          headersISO: []
-        };
-      }
-
-      setResolvedSheets(resolvedNames);
-      setSheetData({
-        schedule: sheetsWithUserData.schedule || { headers: [], rows: [], dateCols: [], headersISO: [] },
-        attendance: sheetsWithUserData.attendance || { headers: [], rows: [], dateCols: [], headersISO: [] },
-        records: sheetsWithUserData.records || { headers: [], rows: [], dateCols: [], headersISO: [] },
-        adjustment: sheetsWithUserData.adjustment || { headers: [], rows: [], dateCols: [], headersISO: [] },
+      setLoadedResults({
+        warehouse,
+        userName,
+        otherResults,
+        attendanceResults,
       });
     } catch (error) {
       console.error('載入資料失敗:', error);
@@ -446,6 +286,7 @@ const App = () => {
         records: { headers: [], rows: [], dateCols: [], headersISO: [] },
         adjustment: { headers: [], rows: [], dateCols: [], headersISO: [] },
       });
+      setLoadedResults(null);
     } finally {
       setLoading(false);
     }
@@ -456,7 +297,181 @@ const App = () => {
     if (user && user.warehouse) {
       loadAllSheets(user.warehouse, user.name);
     }
-  }, [user, selectedMonth]);
+  }, [user]);
+
+  useEffect(() => {
+    if (!loadedResults) return;
+
+    const monthStr = String(selectedMonth);
+    const targetMonth = parseInt(monthStr, 10);
+    const { otherResults, attendanceResults } = loadedResults;
+
+    const extractMonthFromRow = (row, headers) => {
+      const dateFields = ['日期', '出勤日期', '打卡日期', 'Date', 'date'];
+      for (const field of dateFields) {
+        const value = row[field];
+        if (value) {
+          const dateStr = String(value);
+          const match = dateStr.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/) ||
+                        dateStr.match(/(\d{1,2})[\/\-](\d{1,2})/);
+          if (match) {
+            const month = match.length === 4 ? parseInt(match[2], 10) : parseInt(match[1], 10);
+            if (month >= 1 && month <= 12) return month;
+          }
+        }
+      }
+      return null;
+    };
+
+    const parseMonthFromISO = (iso) => {
+      const s = String(iso || '').trim();
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return null;
+      const month = parseInt(m[2], 10);
+      if (month >= 1 && month <= 12) return month;
+      return null;
+    };
+
+    const parseMonthFromHeaderText = (header) => {
+      const h = String(header || '').trim();
+      const m1 = h.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+      if (m1) {
+        const month = parseInt(m1[2], 10);
+        if (month >= 1 && month <= 12) return month;
+      }
+      const m2 = h.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+      if (m2) {
+        const month = parseInt(m2[1], 10);
+        if (month >= 1 && month <= 12) return month;
+      }
+      return null;
+    };
+
+    const hasSelectedMonthInColumns = (parsed) => {
+      const headersISO = Array.isArray(parsed?.headersISO) ? parsed.headersISO : [];
+      const headers = Array.isArray(parsed?.headers) ? parsed.headers : [];
+
+      let foundAnyDate = false;
+      for (let idx = 0; idx < headersISO.length; idx++) {
+        const monthFromISO = parseMonthFromISO(headersISO[idx]);
+        if (monthFromISO !== null) {
+          foundAnyDate = true;
+          if (monthFromISO === targetMonth) return true;
+        }
+      }
+      if (foundAnyDate) return false;
+
+      for (let idx = 0; idx < headers.length; idx++) {
+        const month = parseMonthFromHeaderText(headers[idx]);
+        if (month !== null) {
+          foundAnyDate = true;
+          if (month === targetMonth) return true;
+        }
+      }
+
+      return false;
+    };
+
+    const hasDataForSelectedMonth = (parsed, type) => {
+      if (!parsed) return false;
+
+      if (type === 'schedule') {
+        return hasSelectedMonthInColumns(parsed);
+      }
+
+      if (type === 'records') {
+        if (hasSelectedMonthInColumns(parsed)) return true;
+        for (const row of (parsed.rows || [])) {
+          const rowMonth = extractMonthFromRow(row, parsed.headers || []);
+          if (rowMonth === targetMonth) return true;
+        }
+        return false;
+      }
+
+      return true;
+    };
+
+    const sortByMonthPriority = (results) => {
+      return [...results].sort((a, b) => {
+        const aHasMonth = String(a?.sheetName || '').includes(`${monthStr}月`);
+        const bHasMonth = String(b?.sheetName || '').includes(`${monthStr}月`);
+        if (aHasMonth && !bHasMonth) return -1;
+        if (!aHasMonth && bHasMonth) return 1;
+        return 0;
+      });
+    };
+
+    const resolvedNames = { schedule: '', attendance: '', records: '', adjustment: '' };
+    const sheetsWithUserData = {};
+
+    const scheduleCandidates = sortByMonthPriority(
+      otherResults.filter(r => r.type === 'schedule' && r.parsed && r.hasUserData && hasDataForSelectedMonth(r.parsed, 'schedule'))
+    );
+    const recordsCandidates = sortByMonthPriority(
+      otherResults.filter(r => r.type === 'records' && r.parsed && r.hasUserData && hasDataForSelectedMonth(r.parsed, 'records'))
+    );
+    const adjustmentCandidates = otherResults.filter(r => r.type === 'adjustment' && r.parsed);
+    const adjustmentCandidate = adjustmentCandidates.length > 0 ? adjustmentCandidates[0] : null;
+
+    if (scheduleCandidates.length > 0) {
+      const { sheetName, parsed, matched } = scheduleCandidates[0];
+      resolvedNames.schedule = sheetName;
+      sheetsWithUserData.schedule = { ...parsed, rows: matched };
+    }
+
+    if (recordsCandidates.length > 0) {
+      const { sheetName, parsed, matched } = recordsCandidates[0];
+      resolvedNames.records = sheetName;
+      sheetsWithUserData.records = { ...parsed, rows: matched };
+    }
+
+    if (adjustmentCandidate) {
+      const { sheetName, parsed, matched } = adjustmentCandidate;
+      resolvedNames.adjustment = sheetName;
+      sheetsWithUserData.adjustment = { ...parsed, rows: matched };
+    }
+
+    let attendanceHeaders = [];
+    const attendanceRows = [];
+    const attendanceSheetNames = [];
+
+    for (const { sheetName, parsed, matched } of attendanceResults) {
+      if (!parsed) continue;
+
+      const rowsToCheck = matched;
+      if (attendanceHeaders.length === 0 && parsed.headers.length > 0) {
+        attendanceHeaders = parsed.headers;
+      }
+
+      for (const row of rowsToCheck) {
+        const rowMonth = extractMonthFromRow(row, parsed.headers);
+        if (rowMonth === null || rowMonth === targetMonth) {
+          attendanceRows.push(row);
+          if (!attendanceSheetNames.includes(sheetName)) {
+            attendanceSheetNames.push(sheetName);
+          }
+        }
+      }
+    }
+
+    if (attendanceRows.length > 0) {
+      resolvedNames.attendance = attendanceSheetNames.join(', ');
+      sheetsWithUserData.attendance = {
+        headers: attendanceHeaders,
+        rows: attendanceRows,
+        dateCols: [],
+        headersISO: []
+      };
+    }
+
+    setResolvedSheets(resolvedNames);
+    setSheetData({
+      schedule: sheetsWithUserData.schedule || { headers: [], rows: [], dateCols: [], headersISO: [] },
+      attendance: sheetsWithUserData.attendance || { headers: [], rows: [], dateCols: [], headersISO: [] },
+      records: sheetsWithUserData.records || { headers: [], rows: [], dateCols: [], headersISO: [] },
+      adjustment: sheetsWithUserData.adjustment || { headers: [], rows: [], dateCols: [], headersISO: [] },
+    });
+  }, [loadedResults, selectedMonth]);
 
   // 開啟 Google Sheet 原始連結
   const openGoogleSheet = async () => {
@@ -616,13 +631,15 @@ const App = () => {
   const handleLogout = () => {
     setUser(null);
     setView('login');
+    setLoadedResults(null);
     setSheetData({
       schedule: { headers: [], rows: [], dateCols: [], headersISO: [] },
       attendance: { headers: [], rows: [], dateCols: [], headersISO: [] },
       records: { headers: [], rows: [], dateCols: [], headersISO: [] },
+      adjustment: { headers: [], rows: [], dateCols: [], headersISO: [] },
     });
     setSheetNames([]);
-    setResolvedSheets({ schedule: '', attendance: '', records: '' });
+    setResolvedSheets({ schedule: '', attendance: '', records: '', adjustment: '' });
     // 清除 localStorage 中的登入資料
     localStorage.removeItem('loginTime');
     localStorage.removeItem('user');
@@ -736,7 +753,19 @@ const App = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => { clearAllCache(); loadAllSheets(user.warehouse, user.name); }} 
+              <button onClick={() => { 
+                clearAllCache();
+                setLoadedResults(null);
+                setSheetNames([]);
+                setResolvedSheets({ schedule: '', attendance: '', records: '', adjustment: '' });
+                setSheetData({
+                  schedule: { headers: [], rows: [], dateCols: [], headersISO: [] },
+                  attendance: { headers: [], rows: [], dateCols: [], headersISO: [] },
+                  records: { headers: [], rows: [], dateCols: [], headersISO: [] },
+                  adjustment: { headers: [], rows: [], dateCols: [], headersISO: [] },
+                });
+                loadAllSheets(user.warehouse, user.name);
+              }} 
                 className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-all text-sm font-bold shadow-sm" 
                 title="重新載入（清除快取）">
                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -790,6 +819,7 @@ const App = () => {
                     };
                     // 先清空舊資料和快取，避免混合
                     clearAllCache();
+                    setLoadedResults(null);
                     setSheetData({
                       schedule: { headers: [], rows: [], dateCols: [], headersISO: [] },
                       attendance: { headers: [], rows: [], dateCols: [], headersISO: [] },
