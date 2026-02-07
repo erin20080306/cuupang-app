@@ -63,6 +63,10 @@ const App = () => {
   const [showSheetModal, setShowSheetModal] = useState(false);
   const [modalType, setModalType] = useState('schedule');
   
+  // 管理員模式狀態
+  const [isAdminMode, setIsAdminMode] = useState(false);
+  const [adminSearchName, setAdminSearchName] = useState('');
+  
   // Google Sheet 資料狀態
   const [loading, setLoading] = useState(false);
   const [sheetNames, setSheetNames] = useState([]);
@@ -371,6 +375,13 @@ const App = () => {
         return;
       }
       
+      // 檢查是否為管理員登入（姓名：酷澎，生日：0000）
+      if (name.trim() === '酷澎' && birthday.trim() === '0000') {
+        setIsAdminMode(true);
+        setLoginLoading(false);
+        return;
+      }
+      
       // 呼叫 GAS API 驗證登入 (自動辨識倉別)
       const result = await verifyLogin(name.trim(), birthday.trim());
       
@@ -382,7 +393,7 @@ const App = () => {
           name: result.name || name.trim(),
           warehouse: result.warehouse || result.warehouseKey,
           birthday: birthday.trim(),
-          isAdmin: !!result.isAdmin
+          isAdmin: false
         });
         setView('dashboard');
       } else {
@@ -391,6 +402,46 @@ const App = () => {
     } catch (error) {
       console.error('登入失敗:', error);
       setLoginError(error.message || '登入失敗，請稍後再試');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+  
+  // 管理員查詢人員
+  const handleAdminSearch = async (e) => {
+    e.preventDefault();
+    setLoginError('');
+    setLoginLoading(true);
+    
+    try {
+      const searchName = adminSearchName.trim();
+      if (!searchName) {
+        setLoginError('請輸入要查詢的人員姓名');
+        setLoginLoading(false);
+        return;
+      }
+      
+      // 使用管理員身份查詢人員（生日設為空，讓 API 自動查找）
+      const result = await verifyLogin(searchName, '', true);
+      
+      console.log('管理員查詢結果:', result);
+      
+      if (result && result.ok === true) {
+        setUser({
+          name: result.name || searchName,
+          warehouse: result.warehouse || result.warehouseKey,
+          birthday: '',
+          isAdmin: true
+        });
+        setView('dashboard');
+        setIsAdminMode(false);
+        setAdminSearchName('');
+      } else {
+        setLoginError(result?.error || result?.msg || '找不到此人員，請確認姓名');
+      }
+    } catch (error) {
+      console.error('查詢失敗:', error);
+      setLoginError(error.message || '查詢失敗，請稍後再試');
     } finally {
       setLoginLoading(false);
     }
@@ -812,64 +863,130 @@ const App = () => {
     );
   };
 
-  const renderLogin = () => (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6">
-      <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl p-10 border border-slate-100 text-center">
-        <div className="bg-blue-600 w-20 h-20 rounded-2xl flex items-center justify-center mb-8 shadow-xl mx-auto font-black text-white text-4xl">
-          H
-        </div>
-        <h1 className="text-3xl font-black text-slate-900 tracking-tighter mb-2">宏盛查詢系統</h1>
-        <p className="text-sm text-slate-400 mb-8">請使用生日管理分頁中的姓名和生日登入</p>
-        
-        <form onSubmit={handleLogin} className="space-y-4">
-          {/* 姓名輸入 */}
-          <input 
-            type="text" 
-            className="w-full p-4 bg-slate-100 border-none rounded-2xl outline-none font-bold text-slate-800 text-center text-lg placeholder:text-slate-300" 
-            placeholder="姓名" 
-            value={loginData.name} 
-            onChange={(e) => setLoginData({...loginData, name: e.target.value})}
-          />
-          
-          {/* 生日輸入 */}
-          <input 
-            type="text" 
-            className="w-full p-4 bg-slate-100 border-none rounded-2xl outline-none font-bold text-slate-800 text-center text-lg placeholder:text-slate-300" 
-            placeholder="生日 (例如 810101)" 
-            value={loginData.birthday} 
-            onChange={(e) => setLoginData({...loginData, birthday: e.target.value})
-          }/>
-          
-          {/* 錯誤訊息 */}
-          {loginError && (
-            <div className="text-red-500 text-sm font-bold bg-red-50 p-3 rounded-xl">
-              {loginError}
+  const renderLogin = () => {
+    // 管理員模式介面
+    if (isAdminMode) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6">
+          <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl p-10 border border-slate-100 text-center">
+            <div className="bg-amber-500 w-20 h-20 rounded-2xl flex items-center justify-center mb-8 shadow-xl mx-auto font-black text-white text-4xl">
+              👑
             </div>
-          )}
+            <h1 className="text-3xl font-black text-slate-900 tracking-tighter mb-2">管理員模式</h1>
+            <p className="text-sm text-slate-400 mb-8">請輸入要查詢的人員姓名</p>
+            
+            <form onSubmit={handleAdminSearch} className="space-y-4">
+              {/* 人員姓名輸入 */}
+              <input 
+                type="text" 
+                className="w-full p-4 bg-slate-100 border-none rounded-2xl outline-none font-bold text-slate-800 text-center text-lg placeholder:text-slate-300" 
+                placeholder="輸入人員姓名" 
+                value={adminSearchName} 
+                onChange={(e) => setAdminSearchName(e.target.value)}
+                autoFocus
+              />
+              
+              {/* 錯誤訊息 */}
+              {loginError && (
+                <div className="text-red-500 text-sm font-bold bg-red-50 p-3 rounded-xl">
+                  {loginError}
+                </div>
+              )}
+              
+              {/* 查詢按鈕 */}
+              <button 
+                type="submit"
+                disabled={loginLoading}
+                className="w-full bg-amber-500 text-white py-4 rounded-2xl font-black text-xl shadow-lg shadow-amber-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {loginLoading ? (
+                  <>
+                    <Loader2 size={20} className="animate-spin" />
+                    查詢中...
+                  </>
+                ) : (
+                  '查詢人員'
+                )}
+              </button>
+              
+              {/* 返回按鈕 */}
+              <button 
+                type="button"
+                onClick={() => {
+                  setIsAdminMode(false);
+                  setAdminSearchName('');
+                  setLoginError('');
+                }}
+                className="w-full bg-slate-200 text-slate-600 py-3 rounded-2xl font-bold text-base transition-all active:scale-95"
+              >
+                返回登入
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+    
+    // 一般登入介面
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6">
+        <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl p-10 border border-slate-100 text-center">
+          <div className="bg-blue-600 w-20 h-20 rounded-2xl flex items-center justify-center mb-8 shadow-xl mx-auto font-black text-white text-4xl">
+            H
+          </div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tighter mb-2">宏盛查詢系統</h1>
+          <p className="text-sm text-slate-400 mb-8">請使用生日管理分頁中的姓名和生日登入</p>
           
-          {/* 登入按鈕 */}
-          <button 
-            type="submit"
-            disabled={loginLoading}
-            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-xl shadow-lg shadow-blue-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loginLoading ? (
-              <>
-                <Loader2 size={20} className="animate-spin" />
-                驗證中...
-              </>
-            ) : (
-              '登入系統'
+          <form onSubmit={handleLogin} className="space-y-4">
+            {/* 姓名輸入 */}
+            <input 
+              type="text" 
+              className="w-full p-4 bg-slate-100 border-none rounded-2xl outline-none font-bold text-slate-800 text-center text-lg placeholder:text-slate-300" 
+              placeholder="姓名" 
+              value={loginData.name} 
+              onChange={(e) => setLoginData({...loginData, name: e.target.value})}
+            />
+            
+            {/* 生日輸入 */}
+            <input 
+              type="text" 
+              className="w-full p-4 bg-slate-100 border-none rounded-2xl outline-none font-bold text-slate-800 text-center text-lg placeholder:text-slate-300" 
+              placeholder="生日 (例如 810101)" 
+              value={loginData.birthday} 
+              onChange={(e) => setLoginData({...loginData, birthday: e.target.value})
+            }/>
+            
+            {/* 錯誤訊息 */}
+            {loginError && (
+              <div className="text-red-500 text-sm font-bold bg-red-50 p-3 rounded-xl">
+                {loginError}
+              </div>
             )}
-          </button>
-        </form>
-        
-        <p className="text-xs text-slate-300 mt-6">
-          系統會自動辨識您所屬的倉別
-        </p>
+            
+            {/* 登入按鈕 */}
+            <button 
+              type="submit"
+              disabled={loginLoading}
+              className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-xl shadow-lg shadow-blue-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loginLoading ? (
+                <>
+                  <Loader2 size={20} className="animate-spin" />
+                  驗證中...
+                </>
+              ) : (
+                '登入系統'
+              )}
+            </button>
+          </form>
+          
+          <p className="text-xs text-slate-300 mt-6">
+            系統會自動辨識您所屬的倉別
+          </p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return view === 'login' ? renderLogin() : renderDashboard();
 };

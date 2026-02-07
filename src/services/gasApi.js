@@ -236,9 +236,62 @@ function localVerify(name, birthday) {
  * GAS API 會自動辨識所有倉別人員
  * @param {string} name - 姓名
  * @param {string} birthday - 生日
+ * @param {boolean} isAdminSearch - 是否為管理員查詢模式（只用姓名查詢）
  * @returns {Promise<Object>} 驗證結果（包含 warehouse）
  */
-export async function verifyLogin(name, birthday) {
+export async function verifyLogin(name, birthday, isAdminSearch = false) {
+  // 管理員查詢模式：只用姓名查詢，不需要生日
+  if (isAdminSearch) {
+    // 先嘗試本地查詢
+    const localUser = LOCAL_TEST_USERS.find(u => u.name === name);
+    if (localUser) {
+      return {
+        ok: true,
+        name: localUser.name,
+        warehouse: localUser.warehouse,
+        warehouseKey: localUser.warehouse,
+        isAdmin: true,
+        msg: `管理員查詢成功 (${localUser.warehouse})`
+      };
+    }
+    
+    // 呼叫 GAS API 查詢（使用 findWarehouseByName 模式）
+    try {
+      const url = buildUrl(GAS_API_URL, {
+        mode: 'findWarehouseByName',
+        name: String(name || '').trim(),
+        t: String(Date.now())
+      });
+      
+      const result = await fetchApi(url);
+      
+      if (result && result.ok !== false) {
+        const warehouse = String(result.warehouse || result.warehouseKey || result.wh || result.key || '').trim().toUpperCase();
+        if (warehouse) {
+          return {
+            ok: true,
+            name: result.name || name,
+            warehouse: warehouse,
+            warehouseKey: warehouse,
+            isAdmin: true,
+            msg: `管理員查詢成功 (${warehouse})`
+          };
+        }
+      }
+      
+      return {
+        ok: false,
+        error: result?.error || result?.msg || '找不到此人員，請確認姓名'
+      };
+    } catch (error) {
+      console.error('Admin search error:', error);
+      return {
+        ok: false,
+        error: error.message || '查詢失敗，請稍後再試'
+      };
+    }
+  }
+  
   // 先嘗試本地驗證（測試用）
   const localResult = localVerify(name, birthday);
   if (localResult) {
