@@ -52,6 +52,9 @@ const COLOR_CONFIG = {
   "上班": { bg: "bg-white", text: "text-blue-600", border: "border-slate-100" }
 };
 
+// 登入過期時間（一天，單位：毫秒）
+const LOGIN_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
 const App = () => {
   const [view, setView] = useState('login'); 
   const [activeTab, setActiveTab] = useState('calendar'); 
@@ -66,6 +69,34 @@ const App = () => {
   // 管理員模式狀態
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [adminSearchName, setAdminSearchName] = useState('');
+  
+  // 檢查登入是否過期（一般員工超過一天自動登出）
+  useEffect(() => {
+    const checkLoginExpiry = () => {
+      const loginTime = localStorage.getItem('loginTime');
+      const savedUser = localStorage.getItem('user');
+      
+      if (loginTime && savedUser) {
+        const elapsed = Date.now() - parseInt(loginTime, 10);
+        const parsedUser = JSON.parse(savedUser);
+        
+        // 管理員不受時間限制，一般員工超過一天自動登出
+        if (!parsedUser.isAdmin && elapsed > LOGIN_EXPIRY_MS) {
+          // 登入已過期，清除資料
+          localStorage.removeItem('loginTime');
+          localStorage.removeItem('user');
+          setUser(null);
+          setView('login');
+        } else {
+          // 登入未過期，恢復登入狀態
+          setUser(parsedUser);
+          setView('dashboard');
+        }
+      }
+    };
+    
+    checkLoginExpiry();
+  }, []);
   
   // Google Sheet 資料狀態
   const [loading, setLoading] = useState(false);
@@ -389,13 +420,17 @@ const App = () => {
       
       if (result && result.ok === true) {
         // 登入成功
-        setUser({
+        const userData = {
           name: result.name || name.trim(),
           warehouse: result.warehouse || result.warehouseKey,
           birthday: birthday.trim(),
           isAdmin: false
-        });
+        };
+        setUser(userData);
         setView('dashboard');
+        // 儲存登入時間和用戶資料到 localStorage
+        localStorage.setItem('loginTime', String(Date.now()));
+        localStorage.setItem('user', JSON.stringify(userData));
       } else {
         setLoginError(result?.error || result?.msg || '姓名或生日不正確，請確認後重試');
       }
@@ -427,15 +462,19 @@ const App = () => {
       console.log('管理員查詢結果:', result);
       
       if (result && result.ok === true) {
-        setUser({
+        const userData = {
           name: result.name || searchName,
           warehouse: result.warehouse || result.warehouseKey,
           birthday: '',
           isAdmin: true
-        });
+        };
+        setUser(userData);
         setView('dashboard');
         setIsAdminMode(false);
         setAdminSearchName('');
+        // 管理員也儲存登入資料（但不受時間限制）
+        localStorage.setItem('loginTime', String(Date.now()));
+        localStorage.setItem('user', JSON.stringify(userData));
       } else {
         setLoginError(result?.error || result?.msg || '找不到此人員，請確認姓名');
       }
@@ -458,6 +497,9 @@ const App = () => {
     });
     setSheetNames([]);
     setResolvedSheets({ schedule: '', attendance: '', records: '' });
+    // 清除 localStorage 中的登入資料
+    localStorage.removeItem('loginTime');
+    localStorage.removeItem('user');
   };
 
   const renderDashboard = () => {
@@ -916,6 +958,7 @@ const App = () => {
                   setIsAdminMode(false);
                   setAdminSearchName('');
                   setLoginError('');
+                  setLoginData({ name: '', birthday: '' });
                 }}
                 className="w-full bg-slate-200 text-slate-600 py-3 rounded-2xl font-bold text-base transition-all active:scale-95"
               >
