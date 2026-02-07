@@ -873,7 +873,7 @@ const App = () => {
           {activeTab === 'calendar' && (
             sheetData.schedule.rows.length === 0 ? (
               <div className="bg-slate-100 border border-slate-200 rounded-2xl p-8 text-center">
-                <p className="text-slate-500 font-bold text-lg">📅 {selectedMonth}月本月系統無資料</p>
+                <p className="text-slate-500 font-bold text-lg">📅 {selectedMonth}月本月系統無資料或已清除</p>
               </div>
             ) : (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 overflow-hidden">
@@ -953,7 +953,7 @@ const App = () => {
           {activeTab === 'attendance' && (
             sheetData.attendance.rows.length === 0 ? (
               <div className="bg-slate-100 border border-slate-200 rounded-2xl p-8 text-center">
-                <p className="text-slate-500 font-bold text-lg">⏰ {selectedMonth}月本月系統無資料</p>
+                <p className="text-slate-500 font-bold text-lg">⏰ {selectedMonth}月本月系統無資料或已刪除</p>
               </div>
             ) : (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
@@ -1063,7 +1063,7 @@ const App = () => {
           {activeTab === 'logs' && user.warehouse === 'TAO1' && (
             sheetData.records.rows.length === 0 ? (
               <div className="bg-slate-100 border border-slate-200 rounded-2xl p-8 text-center">
-                <p className="text-slate-500 font-bold text-lg">📋 {selectedMonth}月本月系統無資料</p>
+                <p className="text-slate-500 font-bold text-lg">📋 {selectedMonth}月本月系統無請假記錄或已刪除</p>
               </div>
             ) : (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5">
