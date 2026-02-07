@@ -675,8 +675,8 @@ const App = () => {
           {((activeTab === 'calendar' && sheetData.schedule.rows.length > 0) ||
             (activeTab === 'attendance' && sheetData.attendance.rows.length > 0) ||
             (activeTab === 'logs' && sheetData.records.rows.length > 0) ||
-            (activeTab === 'leaves') ||
-            (activeTab === 'adjustment')) && (
+            (activeTab === 'leaves' && (sheetData.schedule.rows.length > 0 || sheetData.records.rows.length > 0)) ||
+            (activeTab === 'adjustment' && sheetData.adjustment.rows.length > 0)) && (
             <div className="flex items-center justify-between bg-slate-200/50 p-1.5 rounded-xl">
               <button onClick={() => setSelectedMonth(m => m > 1 ? m - 1 : 12)} className="p-2 bg-white rounded-lg shadow-sm">
                 <ChevronLeft size={18}/>
@@ -818,7 +818,7 @@ const App = () => {
           )}
 
           {/* 3. 假別統計 */}
-          {activeTab === 'leaves' && (
+          {activeTab === 'leaves' && (sheetData.schedule.rows.length > 0 || sheetData.records.rows.length > 0) && (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                 <div className="flex items-center gap-3">
@@ -935,7 +935,7 @@ const App = () => {
           )}
 
           {/* 5. 調假名單 - 只有 TAO1 倉顯示 */}
-          {activeTab === 'adjustment' && user.warehouse === 'TAO1' && (
+          {activeTab === 'adjustment' && user.warehouse === 'TAO1' && sheetData.adjustment.rows.length > 0 && (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800">
                 <div className="flex items-center gap-3">
