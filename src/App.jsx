@@ -279,19 +279,14 @@ const App = () => {
       const sheetsWithUserData = {};
       const targetMonth = parseInt(monthStr, 10);
 
-      // 從表頭中提取月份（班表表頭格式如：2026/2/1, 2/2, 2/3 等）
+      // 從表頭中提取月份（班表表頭實際是年月日格式，如 2026/2/1, 2026/2/2 等）
       const extractMonthFromHeaders = (headers) => {
         for (const header of headers) {
           const h = String(header || '').trim();
-          // 嘗試匹配 YYYY/M/D 格式（如 2026/2/1）
-          let match = h.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+          // 嘗試匹配 YYYY/M/D 或 YYYY-M-D 格式（如 2026/2/1）
+          let match = h.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
           if (match) {
             return parseInt(match[2], 10); // 返回月份
-          }
-          // 嘗試匹配 M/D 格式（如 2/2, 2/3）
-          match = h.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
-          if (match) {
-            return parseInt(match[1], 10); // 返回月份
           }
         }
         return null;
