@@ -125,6 +125,7 @@ const App = () => {
   
   // Google Sheet 資料狀態
   const [loading, setLoading] = useState(false);
+  const [backgroundLoading, setBackgroundLoading] = useState(false);
   const [sheetNames, setSheetNames] = useState([]);
   const [resolvedSheets, setResolvedSheets] = useState({ schedule: '', attendance: '', records: '', adjustment: '' });
   const [sheetData, setSheetData] = useState({
@@ -135,6 +136,7 @@ const App = () => {
   });
   const [loadedResults, setLoadedResults] = useState(null);
   const [dataError, setDataError] = useState(null);
+  const loadTokenRef = useRef(0);
 
   const leaveKeywords = ["生理", "事", "特休", "病", "上休(曠)", "下休(曠)", "例休", "國出", "(上休)事", "(下休)事", "(上休)病", "(下休)病", "(上休)生理", "(下休)生理", "(上休)曠", "(下休)曠"];
   const excludeKeywords = ["未", "調倉", "離", "轉正", "調任", "休", "休假", "休假日", "例", "例假", "例假日"];
@@ -172,15 +174,20 @@ const App = () => {
   const loadAllSheets = async (warehouse, userName) => {
     if (!warehouse) return;
 
+    const currentToken = ++loadTokenRef.current;
+
     setLoading(true);
+    setBackgroundLoading(false);
     setDataError(null);
 
     try {
       const names = await getSheetNames(warehouse);
+      if (currentToken !== loadTokenRef.current) return;
       setSheetNames(names);
 
       const userBirthday = String(user?.birthday || '').trim();
       const targetN = normalizeName(String(userName || '').trim());
+      const monthStr = String(selectedMonth);
 
       // 分類分頁類型的函數
       const classifySheet = (sheetName) => {
@@ -218,6 +225,21 @@ const App = () => {
       const recordSheets = names.filter(n => classifySheet(n) === 'records');
       const adjustmentSheets = names.filter(n => classifySheet(n) === 'adjustment');
 
+      const sortByMonthInName = (sheets) => {
+        return [...sheets].sort((a, b) => {
+          const aHasMonth = String(a || '').includes(`${monthStr}月`) || String(a || '').includes('本月');
+          const bHasMonth = String(b || '').includes(`${monthStr}月`) || String(b || '').includes('本月');
+          if (aHasMonth && !bHasMonth) return -1;
+          if (!aHasMonth && bHasMonth) return 1;
+          return 0;
+        });
+      };
+
+      const schedulePriority = sortByMonthInName(scheduleSheets);
+      const recordPriority = sortByMonthInName(recordSheets);
+      const attendancePriority = sortByMonthInName(attendanceSheets);
+      const adjustmentPriority = sortByMonthInName(adjustmentSheets);
+
       // 合併所有需要載入的分頁名稱
       const allSheetNames = [
         ...scheduleSheets,
@@ -226,55 +248,82 @@ const App = () => {
         ...adjustmentSheets
       ];
 
-      // 一次性批量請求所有分頁資料（傳送姓名讓 API 伺服器端過濾）
-      const batchData = await getBatchSheetData(warehouse, allSheetNames, { birthday: userBirthday, name: userName });
+      const initialSheetNames = Array.from(new Set([
+        ...schedulePriority.slice(0, 2),
+        ...recordPriority.slice(0, 1),
+        ...attendancePriority.slice(0, 2),
+        ...adjustmentPriority.slice(0, 1),
+      ].filter(Boolean)));
 
-      // 處理批量結果
-      const otherResults = [];
-      const attendanceResults = [];
+      const remainingSheetNames = allSheetNames.filter(n => !initialSheetNames.includes(n));
 
-      for (const sheetName of scheduleSheets) {
-        const raw = batchData[sheetName];
-        if (raw) {
+      const applyBatchToResults = (batchData, targetSheetNames) => {
+        const otherResults = [];
+        const attendanceResults = [];
+
+        for (const sheetName of targetSheetNames) {
+          const raw = batchData[sheetName];
+          if (!raw) continue;
+
+          const type = classifySheet(sheetName);
           const parsed = parseSheetData(raw);
           const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
-          otherResults.push({ type: 'schedule', sheetName, parsed, matched, hasUserData: matched.length > 0 });
-        }
-      }
+          const hasUserData = matched.length > 0;
 
-      for (const sheetName of recordSheets) {
-        const raw = batchData[sheetName];
-        if (raw) {
-          const parsed = parseSheetData(raw);
-          const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
-          otherResults.push({ type: 'records', sheetName, parsed, matched, hasUserData: matched.length > 0 });
+          if (type === 'attendance') {
+            attendanceResults.push({ sheetName, parsed, matched, hasUserData });
+          } else if (type === 'schedule' || type === 'records' || type === 'adjustment') {
+            otherResults.push({ type, sheetName, parsed, matched, hasUserData });
+          }
         }
-      }
 
-      for (const sheetName of adjustmentSheets) {
-        const raw = batchData[sheetName];
-        if (raw) {
-          const parsed = parseSheetData(raw);
-          const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
-          otherResults.push({ type: 'adjustment', sheetName, parsed, matched, hasUserData: matched.length > 0 });
-        }
-      }
+        return { otherResults, attendanceResults };
+      };
 
-      for (const sheetName of attendanceSheets) {
-        const raw = batchData[sheetName];
-        if (raw) {
-          const parsed = parseSheetData(raw);
-          const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
-          attendanceResults.push({ sheetName, parsed, matched, hasUserData: matched.length > 0 });
-        }
-      }
+      const initialBatch = await getBatchSheetData(warehouse, initialSheetNames, { birthday: userBirthday, name: userName });
+      if (currentToken !== loadTokenRef.current) return;
 
+      const initialResults = applyBatchToResults(initialBatch, initialSheetNames);
       setLoadedResults({
         warehouse,
         userName,
-        otherResults,
-        attendanceResults,
+        otherResults: initialResults.otherResults,
+        attendanceResults: initialResults.attendanceResults,
       });
+
+      setLoading(false);
+
+      if (remainingSheetNames.length > 0) {
+        setBackgroundLoading(true);
+        try {
+          const remainingBatch = await getBatchSheetData(warehouse, remainingSheetNames, { birthday: userBirthday, name: userName });
+          if (currentToken !== loadTokenRef.current) return;
+
+          const remainingResults = applyBatchToResults(remainingBatch, remainingSheetNames);
+          setLoadedResults(prev => {
+            if (!prev) {
+              return {
+                warehouse,
+                userName,
+                otherResults: remainingResults.otherResults,
+                attendanceResults: remainingResults.attendanceResults,
+              };
+            }
+
+            const prevOther = Array.isArray(prev.otherResults) ? prev.otherResults : [];
+            const prevAtt = Array.isArray(prev.attendanceResults) ? prev.attendanceResults : [];
+            return {
+              ...prev,
+              otherResults: [...prevOther, ...remainingResults.otherResults],
+              attendanceResults: [...prevAtt, ...remainingResults.attendanceResults],
+            };
+          });
+        } finally {
+          if (currentToken === loadTokenRef.current) {
+            setBackgroundLoading(false);
+          }
+        }
+      }
     } catch (error) {
       console.error('載入資料失敗:', error);
       setDataError(error.message);
@@ -287,8 +336,11 @@ const App = () => {
         adjustment: { headers: [], rows: [], dateCols: [], headersISO: [] },
       });
       setLoadedResults(null);
+      setBackgroundLoading(false);
     } finally {
-      setLoading(false);
+      if (currentToken === loadTokenRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -631,7 +683,9 @@ const App = () => {
   const handleLogout = () => {
     setUser(null);
     setView('login');
+    loadTokenRef.current += 1;
     setLoadedResults(null);
+    setBackgroundLoading(false);
     setSheetData({
       schedule: { headers: [], rows: [], dateCols: [], headersISO: [] },
       attendance: { headers: [], rows: [], dateCols: [], headersISO: [] },
@@ -748,6 +802,7 @@ const App = () => {
                 <div className="flex items-center gap-2">
                   <span className="text-2xl font-black text-blue-700 tracking-tighter">{user.warehouse}</span>
                   {loading && <Loader2 size={16} className="animate-spin text-blue-500" />}
+                  {!loading && backgroundLoading && <Loader2 size={16} className="animate-spin text-slate-400" />}
                 </div>
                 <h2 className="text-base font-bold text-slate-800">{user.name}</h2>
               </div>
@@ -755,9 +810,11 @@ const App = () => {
             <div className="flex items-center gap-2">
               <button onClick={() => { 
                 clearAllCache();
+                loadTokenRef.current += 1;
                 setLoadedResults(null);
                 setSheetNames([]);
                 setResolvedSheets({ schedule: '', attendance: '', records: '', adjustment: '' });
+                setBackgroundLoading(false);
                 setSheetData({
                   schedule: { headers: [], rows: [], dateCols: [], headersISO: [] },
                   attendance: { headers: [], rows: [], dateCols: [], headersISO: [] },
@@ -819,7 +876,9 @@ const App = () => {
                     };
                     // 先清空舊資料和快取，避免混合
                     clearAllCache();
+                    loadTokenRef.current += 1;
                     setLoadedResults(null);
+                    setBackgroundLoading(false);
                     setSheetData({
                       schedule: { headers: [], rows: [], dateCols: [], headersISO: [] },
                       attendance: { headers: [], rows: [], dateCols: [], headersISO: [] },
