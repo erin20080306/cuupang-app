@@ -207,11 +207,13 @@ const App = () => {
       };
 
       // 計算分頁優先級（月份匹配度）
+      const currentMonth = new Date().getMonth() + 1;
       const getSheetPriority = (sheetName, type) => {
         const n = String(sheetName || '');
-        // 優先級：精確月份匹配 > 本月 > 無月份標記
+        // 優先級：精確月份匹配 > 本月（僅當選擇月份是當前月份時）
         if (n.includes(`${monthStr}月`)) return 3;
-        if (n.includes('本月')) return 2;
+        // 「本月」只有在選擇的月份是當前月份時才匹配
+        if (n.includes('本月') && parseInt(monthStr, 10) === currentMonth) return 2;
         // 對於出勤時數，如果沒有月份標記也接受（會根據資料內容過濾）
         if (type === 'attendance' && (n.includes('出勤時數') || n.includes('出勤時間'))) return 1;
         // 班表和出勤記錄必須有月份匹配才載入，否則返回 -1 表示不載入
