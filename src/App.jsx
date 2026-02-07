@@ -549,52 +549,20 @@ const App = () => {
       // 使用 data URL（比 Blob URL 更好的相容性）
       const dataUrl = canvas.toDataURL('image/png', 1.0);
       
-      // 檢測是否為 iOS Safari（需要特殊處理）
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      // 所有平台統一使用 download 屬性（不需要彈出視窗）
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = filename;
+      link.style.display = 'none';
       
-      if (isIOS) {
-        // iOS：開啟新視窗顯示圖片，讓用戶長按保存
-        const newWindow = window.open('', '_blank');
-        if (newWindow) {
-          newWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1">
-              <title>${filename}</title>
-              <style>
-                body { margin: 0; padding: 20px; background: #f1f5f9; text-align: center; font-family: -apple-system, sans-serif; }
-                img { max-width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-                p { color: #64748b; margin-top: 20px; font-size: 14px; }
-              </style>
-            </head>
-            <body>
-              <img src="${dataUrl}" alt="${filename}"/>
-              <p>📱 長按圖片 → 選擇「儲存圖片」</p>
-            </body>
-            </html>
-          `);
-          newWindow.document.close();
-        } else {
-          alert('請允許彈出視窗以下載圖片');
-        }
-      } else {
-        // Android 和桌面瀏覽器：使用 download 屬性
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = filename;
-        link.style.display = 'none';
-        
-        // 觸發下載
-        document.body.appendChild(link);
-        
-        // 使用 setTimeout 確保 DOM 更新（舊版 Android 相容）
-        setTimeout(() => {
-          link.click();
-          document.body.removeChild(link);
-        }, 100);
-      }
+      // 觸發下載
+      document.body.appendChild(link);
+      
+      // 使用 setTimeout 確保 DOM 更新（舊版手機相容）
+      setTimeout(() => {
+        link.click();
+        document.body.removeChild(link);
+      }, 100);
       
       setIsDownloading(false);
     } catch (error) {
@@ -716,8 +684,28 @@ const App = () => {
         </header>
 
         <main className="p-4 space-y-6">
+          {/* 無資料提示 */}
+          {activeTab === 'calendar' && sheetData.schedule.rows.length === 0 && !loading && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
+              <p className="text-amber-700 font-bold">📅 {selectedMonth}月班表資料尚未建立</p>
+              <p className="text-amber-500 text-sm mt-2">請切換至其他月份查看</p>
+            </div>
+          )}
+          {activeTab === 'attendance' && sheetData.attendance.rows.length === 0 && !loading && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
+              <p className="text-amber-700 font-bold">⏰ {selectedMonth}月工時資料尚未建立</p>
+              <p className="text-amber-500 text-sm mt-2">請切換至其他月份查看</p>
+            </div>
+          )}
+          {activeTab === 'logs' && user.warehouse === 'TAO1' && sheetData.records.rows.length === 0 && !loading && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
+              <p className="text-amber-700 font-bold">📋 {selectedMonth}月出勤記錄資料尚未建立</p>
+              <p className="text-amber-500 text-sm mt-2">請切換至其他月份查看</p>
+            </div>
+          )}
+          
           {/* 1. 班表月曆 */}
-          {activeTab === 'calendar' && (
+          {activeTab === 'calendar' && sheetData.schedule.rows.length > 0 && (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 overflow-hidden">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
@@ -736,11 +724,6 @@ const App = () => {
                   </button>
                 </div>
               </div>
-              {sheetData.schedule.rows.length === 0 && (
-                <div className="mb-4 p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-xs font-bold">
-                  找不到「班表」資料（可能分頁名稱不同，或該分頁沒有你的姓名資料列）
-                </div>
-              )}
               <div ref={calendarRef} className="bg-white p-2">
                 <div className="text-center mb-3 text-sm font-bold text-slate-600">{user.name} - {year}年{selectedMonth}月 班表</div>
                 <div className="grid grid-cols-7 gap-2">
@@ -797,14 +780,14 @@ const App = () => {
           )}
 
           {/* 2. 工時明細 */}
-          {activeTab === 'attendance' && (
+          {activeTab === 'attendance' && sheetData.attendance.rows.length > 0 && (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="p-6 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                 <h3 className="text-lg font-black text-slate-900">出勤查詢明細</h3>
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => downloadCalendarAsPng(attendanceRef, `工時明細_${user.name}_${year}年${selectedMonth}月.png`)}
-                    disabled={isDownloading || sheetData.attendance.rows.length === 0}
+                    disabled={isDownloading}
                     className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 disabled:opacity-50">
                     {isDownloading ? <Loader2 size={12} className="animate-spin"/> : <Download size={12}/>} 下載
                   </button>
@@ -821,9 +804,7 @@ const App = () => {
               </div>
               <div ref={attendanceRef} className="bg-white overflow-x-auto">
                 <div className="text-center py-3 text-sm font-bold text-slate-600">{user.name} - {year}年{selectedMonth}月 工時明細</div>
-                {sheetData.attendance.rows.length === 0 ? (
-                  <div className="p-10 text-center text-slate-400 font-bold">本分頁沒有可顯示的工時資料</div>
-                ) : (
+                {(
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-slate-100 text-slate-500 font-bold border-b border-slate-200 text-center">
@@ -904,7 +885,7 @@ const App = () => {
           )}
 
           {/* 4. 出勤記錄 - 只有 TAO1 倉顯示 */}
-          {activeTab === 'logs' && user.warehouse === 'TAO1' && (
+          {activeTab === 'logs' && user.warehouse === 'TAO1' && sheetData.records.rows.length > 0 && (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
@@ -926,11 +907,6 @@ const App = () => {
                   </button>
                 </div>
               </div>
-              {sheetData.records.rows.length === 0 && (
-                <div className="mb-4 p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-xs font-bold">
-                  找不到「出勤記錄」資料（可能分頁名稱不同，或該分頁沒有你的姓名資料列）
-                </div>
-              )}
               <div ref={recordsCalendarRef} className="bg-white p-2">
                 <div className="text-center mb-3 text-sm font-bold text-slate-600">{user.name} - {year}年{selectedMonth}月 出勤記錄</div>
                 <div className="grid grid-cols-7 gap-2">
@@ -948,13 +924,14 @@ const App = () => {
                 {daysArray.map((d) => {
                   const status = getDailyRecord(user.name, d);
                   const trimmedStatus = String(status || '').trim();
-                  // 顯示原始 Google Sheet 中所有非「上班」和非空白的狀態（用底色區別）
                   const isLeave = trimmedStatus && trimmedStatus !== '上班';
+                  // 只有假別統計中的假別才有底色
+                  const isInLeaveMap = Object.keys(leaveMap).find(type => leaveMap[type].includes(d));
                   const config = COLOR_CONFIG[status] || (isLeave ? COLOR_CONFIG["事"] : COLOR_CONFIG["上班"]);
                   return (
-                    <div key={d} className={`aspect-square rounded-xl flex flex-col items-center justify-center border transition-all ${isLeave ? `${config.bg} ${config.border} shadow-md` : 'bg-white border-slate-100'}`}>
-                      <span className={`${isPWA ? 'text-xl' : 'text-5xl'} font-black leading-none ${isLeave ? config.text : 'text-slate-950'}`}>{d}</span>
-                      {isLeave && <span className={`${isPWA ? 'text-[10px]' : 'text-base'} font-bold ${isPWA ? 'mt-0.5' : 'mt-1'} ${config.text}`}>{status}</span>}
+                    <div key={d} className={`aspect-square rounded-xl flex flex-col items-center justify-center border transition-all ${isInLeaveMap ? `${config.bg} ${config.border} shadow-md` : 'bg-white border-slate-100'}`}>
+                      <span className={`${isPWA ? 'text-xl' : 'text-5xl'} font-black leading-none ${isInLeaveMap ? config.text : 'text-slate-950'}`}>{d}</span>
+                      {isInLeaveMap && <span className={`${isPWA ? 'text-[10px]' : 'text-base'} font-bold ${isPWA ? 'mt-0.5' : 'mt-1'} ${config.text}`}>{status}</span>}
                     </div>
                   );
                 })}
