@@ -79,14 +79,17 @@ const App = () => {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [adminSearchName, setAdminSearchName] = useState('');
   
-  // 檢測是否為 PWA 模式（手機安裝後開啟）
+  // 檢測是否為手機 PWA 模式（手機安裝後開啟）
   const [isPWA, setIsPWA] = useState(false);
   useEffect(() => {
     // 檢測 PWA standalone 模式
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
       || window.navigator.standalone === true
       || document.referrer.includes('android-app://');
-    setIsPWA(isStandalone);
+    // 檢測是否為手機（螢幕寬度小於 768px）
+    const isMobile = window.innerWidth < 768;
+    // 只有手機 PWA 才設為 true
+    setIsPWA(isStandalone && isMobile);
   }, []);
   
   // 檢查登入是否過期（一般員工超過一天自動登出）
@@ -276,41 +279,44 @@ const App = () => {
       const sheetsWithUserData = {};
       const targetMonth = parseInt(monthStr, 10);
 
-      // 從班表/出勤記錄的表頭中提取日期欄位的月份
+      // 從表頭中提取月份（班表表頭格式如：2026/2/1, 2/2, 2/3 等）
       const extractMonthFromHeaders = (headers) => {
-        // 班表的表頭通常是日期格式，例如 "1", "2", ... "31" 或 "1/1", "1/2" 等
         for (const header of headers) {
-          const h = String(header || '');
-          // 嘗試匹配 M/D 格式
-          const match = h.match(/^(\d{1,2})\/(\d{1,2})$/);
+          const h = String(header || '').trim();
+          // 嘗試匹配 YYYY/M/D 格式（如 2026/2/1）
+          let match = h.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
           if (match) {
-            return parseInt(match[1], 10);
+            return parseInt(match[2], 10); // 返回月份
+          }
+          // 嘗試匹配 M/D 格式（如 2/2, 2/3）
+          match = h.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+          if (match) {
+            return parseInt(match[1], 10); // 返回月份
           }
         }
         return null;
       };
 
-      // 檢查資料列中是否有選擇月份的日期
-      const hasSelectedMonthData = (parsed, type) => {
-        if (!parsed || !parsed.headers || parsed.headers.length === 0) return false;
+      // 檢查資料是否屬於選擇的月份
+      const hasDataForSelectedMonth = (parsed, type) => {
+        if (!parsed) return false;
         
-        // 對於班表，檢查表頭中的日期欄位
+        // 對於班表，檢查表頭中的日期
         if (type === 'schedule') {
-          const headerMonth = extractMonthFromHeaders(parsed.headers);
+          const headerMonth = extractMonthFromHeaders(parsed.headers || []);
           if (headerMonth !== null) {
             return headerMonth === targetMonth;
           }
-          // 如果表頭沒有月份資訊，檢查分頁名稱
-          return true; // 無法判斷時預設顯示
         }
         
-        // 對於出勤記錄，檢查資料列中的日期欄位
+        // 對於出勤記錄，檢查資料列中的日期
         if (type === 'records') {
-          for (const row of parsed.rows) {
-            const rowMonth = extractMonthFromRow(row, parsed.headers);
+          for (const row of (parsed.rows || [])) {
+            const rowMonth = extractMonthFromRow(row, parsed.headers || []);
             if (rowMonth === targetMonth) return true;
           }
-          return parsed.rows.length === 0 ? false : true; // 無法判斷時預設顯示
+          // 如果沒有資料列或無法判斷，返回 false
+          return false;
         }
         
         return true;
@@ -323,8 +329,8 @@ const App = () => {
         
         // 對於班表和出勤記錄，根據資料中的日期過濾
         if (type === 'schedule' || type === 'records') {
-          if (!hasSelectedMonthData(parsed, type)) {
-            // 沒有選擇月份的資料，設為空
+          if (!hasDataForSelectedMonth(parsed, type)) {
+            // 資料不屬於選擇的月份，跳過
             continue;
           }
         }
