@@ -783,6 +783,62 @@ const App = () => {
             </div>
           )}
           
+          {/* 管理員查詢人員區 */}
+          {user.isAdmin && (
+            <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-xl">
+              <div className="flex items-center gap-2 mb-3">
+                <User size={18} className="text-purple-600" />
+                <span className="text-sm font-bold text-purple-700">查詢其他人員</span>
+              </div>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const searchName = e.target.searchName.value.trim();
+                if (!searchName) return;
+                setLoginLoading(true);
+                setLoginError('');
+                try {
+                  const result = await verifyLogin(searchName, '', true);
+                  if (result.ok) {
+                    const userData = {
+                      name: result.name || searchName,
+                      warehouse: result.warehouse || result.warehouseKey,
+                      birthday: '',
+                      isAdmin: true
+                    };
+                    setUser(userData);
+                    e.target.searchName.value = '';
+                    clearAllCache();
+                    loadAllSheets(userData.warehouse, userData.name);
+                  } else {
+                    setLoginError(result.error || '找不到此人員');
+                  }
+                } catch (err) {
+                  setLoginError(err.message || '查詢失敗');
+                } finally {
+                  setLoginLoading(false);
+                }
+              }} className="flex gap-2">
+                <input
+                  type="text"
+                  name="searchName"
+                  placeholder="輸入人員姓名"
+                  className="flex-1 px-4 py-2 border border-purple-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                />
+                <button
+                  type="submit"
+                  disabled={loginLoading}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {loginLoading ? <Loader2 size={16} className="animate-spin" /> : <User size={16} />}
+                  查詢
+                </button>
+              </form>
+              {loginError && (
+                <div className="mt-2 text-red-500 text-xs font-bold">{loginError}</div>
+              )}
+            </div>
+          )}
+
           {/* 資料狀態提示 */}
           {dataError && (
             <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 text-xs font-bold">
