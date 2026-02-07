@@ -671,38 +671,25 @@ const App = () => {
             </div>
           )}
           
-          {/* 月份選擇器 */}
-          <div className="flex items-center justify-between bg-slate-200/50 p-1.5 rounded-xl">
-            <button onClick={() => setSelectedMonth(m => m > 1 ? m - 1 : 12)} className="p-2 bg-white rounded-lg shadow-sm">
-              <ChevronLeft size={18}/>
-            </button>
-            <span className="text-base font-black text-slate-900">{year} 年 {selectedMonth} 月</span>
-            <button onClick={() => setSelectedMonth(m => m < 12 ? m + 1 : 1)} className="p-2 bg-white rounded-lg shadow-sm">
-              <ChevronRight size={18}/>
-            </button>
-          </div>
+          {/* 月份選擇器 - 只在有資料時顯示 */}
+          {((activeTab === 'calendar' && sheetData.schedule.rows.length > 0) ||
+            (activeTab === 'attendance' && sheetData.attendance.rows.length > 0) ||
+            (activeTab === 'logs' && sheetData.records.rows.length > 0) ||
+            (activeTab === 'leaves') ||
+            (activeTab === 'adjustment')) && (
+            <div className="flex items-center justify-between bg-slate-200/50 p-1.5 rounded-xl">
+              <button onClick={() => setSelectedMonth(m => m > 1 ? m - 1 : 12)} className="p-2 bg-white rounded-lg shadow-sm">
+                <ChevronLeft size={18}/>
+              </button>
+              <span className="text-base font-black text-slate-900">{year} 年 {selectedMonth} 月</span>
+              <button onClick={() => setSelectedMonth(m => m < 12 ? m + 1 : 1)} className="p-2 bg-white rounded-lg shadow-sm">
+                <ChevronRight size={18}/>
+              </button>
+            </div>
+          )}
         </header>
 
         <main className="p-4 space-y-6">
-          {/* 無資料提示 */}
-          {activeTab === 'calendar' && sheetData.schedule.rows.length === 0 && !loading && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
-              <p className="text-amber-700 font-bold">📅 {selectedMonth}月班表資料尚未建立</p>
-              <p className="text-amber-500 text-sm mt-2">請切換至其他月份查看</p>
-            </div>
-          )}
-          {activeTab === 'attendance' && sheetData.attendance.rows.length === 0 && !loading && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
-              <p className="text-amber-700 font-bold">⏰ {selectedMonth}月工時資料尚未建立</p>
-              <p className="text-amber-500 text-sm mt-2">請切換至其他月份查看</p>
-            </div>
-          )}
-          {activeTab === 'logs' && user.warehouse === 'TAO1' && sheetData.records.rows.length === 0 && !loading && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
-              <p className="text-amber-700 font-bold">📋 {selectedMonth}月出勤記錄資料尚未建立</p>
-              <p className="text-amber-500 text-sm mt-2">請切換至其他月份查看</p>
-            </div>
-          )}
           
           {/* 1. 班表月曆 */}
           {activeTab === 'calendar' && sheetData.schedule.rows.length > 0 && (
