@@ -28,6 +28,7 @@ import {
   parseSheetData,
   getRowName,
   normalizeName,
+  clearAllCache,
   getWarehouseSheetId
 } from './services/gasApi';
 
@@ -753,9 +754,9 @@ const App = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => loadAllSheets(user.warehouse, user.name)} 
+              <button onClick={() => { clearAllCache(); loadAllSheets(user.warehouse, user.name); }} 
                 className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all" 
-                title="重新載入">
+                title="重新載入（清除快取）">
                 <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
               </button>
               <button onClick={openGoogleSheet} 

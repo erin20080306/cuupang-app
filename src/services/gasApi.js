@@ -607,6 +607,17 @@ export function normalizeName(value) {
 }
 
 /**
+ * 清除所有快取（用於強制重新載入最新資料）
+ */
+export function clearAllCache() {
+  cache.sheetId.clear();
+  cache.sheetNames.clear();
+  cache.sheetData.clear();
+  cache.verifyLogin.clear();
+  console.log('[快取] 已清除所有快取');
+}
+
+/**
  * 從資料列中取得姓名
  */
 export function getRowName(row) {
@@ -681,5 +692,6 @@ export default {
   parseSheetData,
   getRowName,
   getSheetType,
-  getDefaultSheet
+  getDefaultSheet,
+  clearAllCache
 };
