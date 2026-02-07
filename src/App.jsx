@@ -526,7 +526,7 @@ const App = () => {
     setAdminSearchName('');
   };
   
-  // 下載月曆為 PNG（支援舊式手機，包括 iOS Safari）
+  // 下載月曆為 PNG（開啟新網頁下載，保證完整區域）
   const downloadCalendarAsPng = async (refElement, filename) => {
     if (!refElement.current) return;
     
@@ -538,31 +538,52 @@ const App = () => {
         scale: 2, // 提高解析度
         useCORS: true,
         logging: false,
-        // 舊式手機相容性設定
         allowTaint: true,
         foreignObjectRendering: false,
-        // 降低記憶體使用（舊手機）
         imageTimeout: 15000,
         removeContainer: true,
+        // 確保完整區域都被捕獲
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: refElement.current.scrollWidth,
+        windowHeight: refElement.current.scrollHeight,
       });
       
-      // 使用 data URL（比 Blob URL 更好的相容性）
+      // 使用 data URL
       const dataUrl = canvas.toDataURL('image/png', 1.0);
       
-      // 所有平台統一使用 download 屬性（不需要彈出視窗）
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = filename;
-      link.style.display = 'none';
-      
-      // 觸發下載
-      document.body.appendChild(link);
-      
-      // 使用 setTimeout 確保 DOM 更新（舊版手機相容）
-      setTimeout(() => {
+      // 開啟新網頁顯示圖片，讓用戶長按保存
+      const newWindow = window.open('', '_blank');
+      if (newWindow) {
+        newWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>${filename}</title>
+            <style>
+              body { margin: 0; padding: 20px; background: #f1f5f9; text-align: center; font-family: -apple-system, sans-serif; }
+              img { max-width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+              p { color: #64748b; margin-top: 20px; font-size: 14px; }
+              .btn { display: inline-block; margin-top: 15px; padding: 12px 24px; background: #3b82f6; color: white; border-radius: 8px; text-decoration: none; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <img src="${dataUrl}" alt="${filename}"/>
+            <p>📱 長按圖片 → 選擇「儲存圖片」或「加入照片」</p>
+          </body>
+          </html>
+        `);
+        newWindow.document.close();
+      } else {
+        // 如果無法開啟新視窗，嘗試直接下載
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = filename;
+        document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-      }, 100);
+      }
       
       setIsDownloading(false);
     } catch (error) {
@@ -688,8 +709,8 @@ const App = () => {
           {/* 1. 班表月曆 */}
           {activeTab === 'calendar' && (
             sheetData.schedule.rows.length === 0 ? (
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
-                <p className="text-amber-700 font-bold">📅 {selectedMonth}月班表資料尚未建立</p>
+              <div className="bg-slate-100 border border-slate-200 rounded-2xl p-8 text-center">
+                <p className="text-slate-500 font-bold text-lg">📅 {selectedMonth}月本月系統無資料</p>
               </div>
             ) : (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 overflow-hidden">
@@ -768,8 +789,8 @@ const App = () => {
           {/* 2. 工時明細 */}
           {activeTab === 'attendance' && (
             sheetData.attendance.rows.length === 0 ? (
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
-                <p className="text-amber-700 font-bold">⏰ {selectedMonth}月工時資料尚未建立</p>
+              <div className="bg-slate-100 border border-slate-200 rounded-2xl p-8 text-center">
+                <p className="text-slate-500 font-bold text-lg">⏰ {selectedMonth}月本月系統無資料</p>
               </div>
             ) : (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
@@ -878,8 +899,8 @@ const App = () => {
           {/* 4. 出勤記錄 - 只有 TAO1 倉顯示 */}
           {activeTab === 'logs' && user.warehouse === 'TAO1' && (
             sheetData.records.rows.length === 0 ? (
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
-                <p className="text-amber-700 font-bold">📋 {selectedMonth}月出勤記錄資料尚未建立</p>
+              <div className="bg-slate-100 border border-slate-200 rounded-2xl p-8 text-center">
+                <p className="text-slate-500 font-bold text-lg">📋 {selectedMonth}月本月系統無資料</p>
               </div>
             ) : (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5">
@@ -946,8 +967,8 @@ const App = () => {
           {/* 5. 調假名單 - 只有 TAO1 倉顯示 */}
           {activeTab === 'adjustment' && user.warehouse === 'TAO1' && (
             sheetData.adjustment.rows.length === 0 ? (
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
-                <p className="text-amber-700 font-bold">📝 {selectedMonth}月調假名單資料尚未建立</p>
+              <div className="bg-slate-100 border border-slate-200 rounded-2xl p-8 text-center">
+                <p className="text-slate-500 font-bold text-lg">📝 {selectedMonth}月本月系統無資料</p>
               </div>
             ) : (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
