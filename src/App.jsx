@@ -225,21 +225,6 @@ const App = () => {
       const recordSheets = names.filter(n => classifySheet(n) === 'records');
       const adjustmentSheets = names.filter(n => classifySheet(n) === 'adjustment');
 
-      const sortByMonthInName = (sheets) => {
-        return [...sheets].sort((a, b) => {
-          const aHasMonth = String(a || '').includes(`${monthStr}月`) || String(a || '').includes('本月');
-          const bHasMonth = String(b || '').includes(`${monthStr}月`) || String(b || '').includes('本月');
-          if (aHasMonth && !bHasMonth) return -1;
-          if (!aHasMonth && bHasMonth) return 1;
-          return 0;
-        });
-      };
-
-      const schedulePriority = sortByMonthInName(scheduleSheets);
-      const recordPriority = sortByMonthInName(recordSheets);
-      const attendancePriority = sortByMonthInName(attendanceSheets);
-      const adjustmentPriority = sortByMonthInName(adjustmentSheets);
-
       // 合併所有需要載入的分頁名稱
       const allSheetNames = [
         ...scheduleSheets,
@@ -248,80 +233,35 @@ const App = () => {
         ...adjustmentSheets
       ];
 
-      const initialSheetNames = Array.from(new Set([
-        ...schedulePriority.slice(0, 1),
-        ...attendancePriority.slice(0, 1),
-      ].filter(Boolean)));
-
-      const remainingSheetNames = allSheetNames.filter(n => !initialSheetNames.includes(n));
-
-      const applyBatchToResults = (batchData, targetSheetNames) => {
-        const otherResults = [];
-        const attendanceResults = [];
-
-        for (const sheetName of targetSheetNames) {
-          const raw = batchData[sheetName];
-          if (!raw) continue;
-
-          const type = classifySheet(sheetName);
-          const parsed = parseSheetData(raw);
-          const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
-          const hasUserData = matched.length > 0;
-
-          if (type === 'attendance') {
-            attendanceResults.push({ sheetName, parsed, matched, hasUserData });
-          } else if (type === 'schedule' || type === 'records' || type === 'adjustment') {
-            otherResults.push({ type, sheetName, parsed, matched, hasUserData });
-          }
-        }
-
-        return { otherResults, attendanceResults };
-      };
-
-      const initialBatch = await getBatchSheetData(warehouse, initialSheetNames, { birthday: userBirthday, name: userName });
+      // 所有分頁同時並行抓取
+      const batchData = await getBatchSheetData(warehouse, allSheetNames, { birthday: userBirthday, name: userName });
       if (currentToken !== loadTokenRef.current) return;
 
-      const initialResults = applyBatchToResults(initialBatch, initialSheetNames);
+      const otherResults = [];
+      const attendanceResults = [];
+
+      for (const sheetName of allSheetNames) {
+        const raw = batchData[sheetName];
+        if (!raw) continue;
+
+        const type = classifySheet(sheetName);
+        const parsed = parseSheetData(raw);
+        const matched = parsed.rows.filter(r => normalizeName(getRowName(r)) === targetN);
+        const hasUserData = matched.length > 0;
+
+        if (type === 'attendance') {
+          attendanceResults.push({ sheetName, parsed, matched, hasUserData });
+        } else if (type === 'schedule' || type === 'records' || type === 'adjustment') {
+          otherResults.push({ type, sheetName, parsed, matched, hasUserData });
+        }
+      }
+
       setLoadedResults({
         warehouse,
         userName,
-        otherResults: initialResults.otherResults,
-        attendanceResults: initialResults.attendanceResults,
+        otherResults,
+        attendanceResults,
       });
-
-      setLoading(false);
-
-      if (remainingSheetNames.length > 0) {
-        setBackgroundLoading(true);
-        try {
-          const remainingBatch = await getBatchSheetData(warehouse, remainingSheetNames, { birthday: userBirthday, name: userName });
-          if (currentToken !== loadTokenRef.current) return;
-
-          const remainingResults = applyBatchToResults(remainingBatch, remainingSheetNames);
-          setLoadedResults(prev => {
-            if (!prev) {
-              return {
-                warehouse,
-                userName,
-                otherResults: remainingResults.otherResults,
-                attendanceResults: remainingResults.attendanceResults,
-              };
-            }
-
-            const prevOther = Array.isArray(prev.otherResults) ? prev.otherResults : [];
-            const prevAtt = Array.isArray(prev.attendanceResults) ? prev.attendanceResults : [];
-            return {
-              ...prev,
-              otherResults: [...prevOther, ...remainingResults.otherResults],
-              attendanceResults: [...prevAtt, ...remainingResults.attendanceResults],
-            };
-          });
-        } finally {
-          if (currentToken === loadTokenRef.current) {
-            setBackgroundLoading(false);
-          }
-        }
-      }
     } catch (error) {
       console.error('載入資料失敗:', error);
       setDataError(error.message);
