@@ -753,22 +753,24 @@ const App = () => {
                 <h2 className="text-base font-bold text-slate-800">{user.name}</h2>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <button onClick={() => { clearAllCache(); loadAllSheets(user.warehouse, user.name); }} 
-                className="flex items-center gap-1 px-2 py-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all text-xs font-medium" 
+                className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-all text-sm font-bold shadow-sm" 
                 title="重新載入（清除快取）">
-                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                 <span>重整</span>
               </button>
-              <button onClick={openGoogleSheet} 
-                className="flex items-center gap-1 px-2 py-1.5 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all text-xs font-medium" 
-                title="開啟 Google Sheet">
-                <ExternalLink size={14} />
-                <span>表單</span>
-              </button>
+              {user.isAdmin && (
+                <button onClick={openGoogleSheet} 
+                  className="flex items-center gap-1.5 px-3 py-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-xl transition-all text-sm font-bold shadow-sm" 
+                  title="開啟 Google Sheet">
+                  <ExternalLink size={16} />
+                  <span>表單</span>
+                </button>
+              )}
               <button onClick={handleLogout} 
-                className="flex items-center gap-1 px-2 py-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all text-xs font-medium">
-                <LogOut size={14}/>
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all text-sm font-bold shadow-sm">
+                <LogOut size={16}/>
                 <span>登出</span>
               </button>
             </div>
