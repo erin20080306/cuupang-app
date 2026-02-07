@@ -73,6 +73,7 @@ const App = () => {
   const calendarRef = useRef(null);
   const recordsCalendarRef = useRef(null);
   const leaveStatsRef = useRef(null);
+  const attendanceRef = useRef(null);
   
   // 管理員模式狀態
   const [isAdminMode, setIsAdminMode] = useState(false);
@@ -732,17 +733,26 @@ const App = () => {
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="p-6 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                 <h3 className="text-lg font-black text-slate-900">出勤查詢明細</h3>
-                <button
-                  onClick={() => {
-                    setModalType('attendance');
-                    setShowSheetModal(true);
-                  }}
-                  className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1"
-                >
-                  <Maximize2 size={14}/> 原始樣式
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => downloadCalendarAsPng(attendanceRef, `工時明細_${user.name}_${year}年${selectedMonth}月.png`)}
+                    disabled={isDownloading || sheetData.attendance.rows.length === 0}
+                    className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 disabled:opacity-50">
+                    {isDownloading ? <Loader2 size={12} className="animate-spin"/> : <Download size={12}/>} 下載
+                  </button>
+                  <button
+                    onClick={() => {
+                      setModalType('attendance');
+                      setShowSheetModal(true);
+                    }}
+                    className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1"
+                  >
+                    <Maximize2 size={14}/> 原始樣式
+                  </button>
+                </div>
               </div>
-              <div className="overflow-x-auto">
+              <div ref={attendanceRef} className="bg-white overflow-x-auto">
+                <div className="text-center py-3 text-sm font-bold text-slate-600">{user.name} - {year}年{selectedMonth}月 工時明細</div>
                 {sheetData.attendance.rows.length === 0 ? (
                   <div className="p-10 text-center text-slate-400 font-bold">本分頁沒有可顯示的工時資料</div>
                 ) : (
