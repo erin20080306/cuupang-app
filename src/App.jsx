@@ -386,9 +386,10 @@ const App = () => {
       }
 
       if (adjustmentCandidate) {
-        const { sheetName, parsed, matched, hasUserData } = adjustmentCandidate;
+        const { sheetName, parsed, matched } = adjustmentCandidate;
         resolvedNames.adjustment = sheetName;
-        sheetsWithUserData.adjustment = { ...parsed, rows: hasUserData ? matched : parsed.rows };
+        // 只使用該人員的資料
+        sheetsWithUserData.adjustment = { ...parsed, rows: matched };
       }
 
       // 整理出勤時數結果：合併所有分頁中屬於選擇月份的資料
@@ -396,10 +397,11 @@ const App = () => {
       const attendanceRows = [];
       const attendanceSheetNames = [];
 
-      for (const { sheetName, parsed, matched, hasUserData } of attendanceResults) {
+      for (const { sheetName, parsed, matched } of attendanceResults) {
         if (!parsed) continue;
         
-        const rowsToCheck = hasUserData ? matched : parsed.rows;
+        // 只使用該人員的資料
+        const rowsToCheck = matched;
         if (attendanceHeaders.length === 0 && parsed.headers.length > 0) {
           attendanceHeaders = parsed.headers;
         }
