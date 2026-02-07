@@ -671,28 +671,27 @@ const App = () => {
             </div>
           )}
           
-          {/* 月份選擇器 - 只在有資料時顯示 */}
-          {((activeTab === 'calendar' && sheetData.schedule.rows.length > 0) ||
-            (activeTab === 'attendance' && sheetData.attendance.rows.length > 0) ||
-            (activeTab === 'logs' && sheetData.records.rows.length > 0) ||
-            (activeTab === 'leaves' && (sheetData.schedule.rows.length > 0 || sheetData.records.rows.length > 0)) ||
-            (activeTab === 'adjustment' && sheetData.adjustment.rows.length > 0)) && (
-            <div className="flex items-center justify-between bg-slate-200/50 p-1.5 rounded-xl">
-              <button onClick={() => setSelectedMonth(m => m > 1 ? m - 1 : 12)} className="p-2 bg-white rounded-lg shadow-sm">
-                <ChevronLeft size={18}/>
-              </button>
-              <span className="text-base font-black text-slate-900">{year} 年 {selectedMonth} 月</span>
-              <button onClick={() => setSelectedMonth(m => m < 12 ? m + 1 : 1)} className="p-2 bg-white rounded-lg shadow-sm">
-                <ChevronRight size={18}/>
-              </button>
-            </div>
-          )}
+          {/* 月份選擇器 - 始終顯示 */}
+          <div className="flex items-center justify-between bg-slate-200/50 p-1.5 rounded-xl">
+            <button onClick={() => setSelectedMonth(m => m > 1 ? m - 1 : 12)} className="p-2 bg-white rounded-lg shadow-sm">
+              <ChevronLeft size={18}/>
+            </button>
+            <span className="text-base font-black text-slate-900">{year} 年 {selectedMonth} 月</span>
+            <button onClick={() => setSelectedMonth(m => m < 12 ? m + 1 : 1)} className="p-2 bg-white rounded-lg shadow-sm">
+              <ChevronRight size={18}/>
+            </button>
+          </div>
         </header>
 
         <main className="p-4 space-y-6">
           
           {/* 1. 班表月曆 */}
-          {activeTab === 'calendar' && sheetData.schedule.rows.length > 0 && (
+          {activeTab === 'calendar' && (
+            sheetData.schedule.rows.length === 0 ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
+                <p className="text-amber-700 font-bold">📅 {selectedMonth}月班表資料尚未建立</p>
+              </div>
+            ) : (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 overflow-hidden">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
@@ -764,10 +763,15 @@ const App = () => {
                 </div>
               </div>
             </section>
-          )}
+          ))}
 
           {/* 2. 工時明細 */}
-          {activeTab === 'attendance' && sheetData.attendance.rows.length > 0 && (
+          {activeTab === 'attendance' && (
+            sheetData.attendance.rows.length === 0 ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
+                <p className="text-amber-700 font-bold">⏰ {selectedMonth}月工時資料尚未建立</p>
+              </div>
+            ) : (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="p-6 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                 <h3 className="text-lg font-black text-slate-900">出勤查詢明細</h3>
@@ -815,10 +819,10 @@ const App = () => {
                 )}
               </div>
             </section>
-          )}
+          ))}
 
           {/* 3. 假別統計 */}
-          {activeTab === 'leaves' && (sheetData.schedule.rows.length > 0 || sheetData.records.rows.length > 0) && (
+          {activeTab === 'leaves' && (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                 <div className="flex items-center gap-3">
@@ -872,7 +876,12 @@ const App = () => {
           )}
 
           {/* 4. 出勤記錄 - 只有 TAO1 倉顯示 */}
-          {activeTab === 'logs' && user.warehouse === 'TAO1' && sheetData.records.rows.length > 0 && (
+          {activeTab === 'logs' && user.warehouse === 'TAO1' && (
+            sheetData.records.rows.length === 0 ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
+                <p className="text-amber-700 font-bold">📋 {selectedMonth}月出勤記錄資料尚未建立</p>
+              </div>
+            ) : (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
@@ -932,10 +941,15 @@ const App = () => {
                 </div>
               </div>
             </section>
-          )}
+          ))}
 
           {/* 5. 調假名單 - 只有 TAO1 倉顯示 */}
-          {activeTab === 'adjustment' && user.warehouse === 'TAO1' && sheetData.adjustment.rows.length > 0 && (
+          {activeTab === 'adjustment' && user.warehouse === 'TAO1' && (
+            sheetData.adjustment.rows.length === 0 ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
+                <p className="text-amber-700 font-bold">📝 {selectedMonth}月調假名單資料尚未建立</p>
+              </div>
+            ) : (
             <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-800">
                 <div className="flex items-center gap-3">
@@ -979,7 +993,7 @@ const App = () => {
                 )}
               </div>
             </section>
-          )}
+          ))}
         </main>
 
         {/* 底部導覽 */}
