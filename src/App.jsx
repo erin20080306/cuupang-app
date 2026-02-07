@@ -206,19 +206,14 @@ const App = () => {
         return null;
       };
 
-      // 計算分頁優先級（月份匹配度）
-      const currentMonth = new Date().getMonth() + 1;
+      // 計算分頁優先級（月份匹配度）- 所有分頁都載入，之後根據資料內容過濾
       const getSheetPriority = (sheetName, type) => {
         const n = String(sheetName || '');
-        // 優先級：精確月份匹配 > 本月（僅當選擇月份是當前月份時）
+        // 優先級：精確月份匹配 > 本月 > 無月份標記
         if (n.includes(`${monthStr}月`)) return 3;
-        // 「本月」只有在選擇的月份是當前月份時才匹配
-        if (n.includes('本月') && parseInt(monthStr, 10) === currentMonth) return 2;
-        // 對於出勤時數，如果沒有月份標記也接受（會根據資料內容過濾）
-        if (type === 'attendance' && (n.includes('出勤時數') || n.includes('出勤時間'))) return 1;
-        // 班表和出勤記錄必須有月份匹配才載入，否則返回 -1 表示不載入
-        if (type === 'schedule' || type === 'records') return -1;
-        return 0;
+        if (n.includes('本月')) return 2;
+        // 所有類型都接受，會根據資料內容過濾
+        return 1;
       };
 
       // 篩選出所有出勤時數分頁（不只取一個）
@@ -239,8 +234,8 @@ const App = () => {
 
       const sheetsToFetch = {};
       for (const { sheetName, type, priority } of otherSheets) {
-        // 只載入優先級 > 0 的分頁（有月份匹配）
-        if (priority > 0 && (!sheetsToFetch[type] || priority > sheetsToFetch[type].priority)) {
+        // 載入所有分頁，之後根據資料內容過濾
+        if (!sheetsToFetch[type] || priority > sheetsToFetch[type].priority) {
           sheetsToFetch[type] = { sheetName, priority };
         }
       }
@@ -276,22 +271,71 @@ const App = () => {
         Promise.all(attendanceFetchPromises)
       ]);
 
-      // 整理非出勤時數結果
+      // 整理非出勤時數結果 - 根據資料中的日期過濾選擇月份的資料
       const resolvedNames = { schedule: '', attendance: '', records: '', adjustment: '' };
       const sheetsWithUserData = {};
+      const targetMonth = parseInt(monthStr, 10);
+
+      // 從班表/出勤記錄的表頭中提取日期欄位的月份
+      const extractMonthFromHeaders = (headers) => {
+        // 班表的表頭通常是日期格式，例如 "1", "2", ... "31" 或 "1/1", "1/2" 等
+        for (const header of headers) {
+          const h = String(header || '');
+          // 嘗試匹配 M/D 格式
+          const match = h.match(/^(\d{1,2})\/(\d{1,2})$/);
+          if (match) {
+            return parseInt(match[1], 10);
+          }
+        }
+        return null;
+      };
+
+      // 檢查資料列中是否有選擇月份的日期
+      const hasSelectedMonthData = (parsed, type) => {
+        if (!parsed || !parsed.headers || parsed.headers.length === 0) return false;
+        
+        // 對於班表，檢查表頭中的日期欄位
+        if (type === 'schedule') {
+          const headerMonth = extractMonthFromHeaders(parsed.headers);
+          if (headerMonth !== null) {
+            return headerMonth === targetMonth;
+          }
+          // 如果表頭沒有月份資訊，檢查分頁名稱
+          return true; // 無法判斷時預設顯示
+        }
+        
+        // 對於出勤記錄，檢查資料列中的日期欄位
+        if (type === 'records') {
+          for (const row of parsed.rows) {
+            const rowMonth = extractMonthFromRow(row, parsed.headers);
+            if (rowMonth === targetMonth) return true;
+          }
+          return parsed.rows.length === 0 ? false : true; // 無法判斷時預設顯示
+        }
+        
+        return true;
+      };
 
       for (const { type, sheetName, parsed, matched, hasUserData } of otherResults) {
-        if (hasUserData && parsed) {
+        if (!parsed) continue;
+        
+        const rows = hasUserData ? matched : parsed.rows;
+        
+        // 對於班表和出勤記錄，根據資料中的日期過濾
+        if (type === 'schedule' || type === 'records') {
+          if (!hasSelectedMonthData(parsed, type)) {
+            // 沒有選擇月份的資料，設為空
+            continue;
+          }
+        }
+        
+        if (rows.length > 0 || type === 'adjustment') {
           resolvedNames[type] = sheetName;
-          sheetsWithUserData[type] = { ...parsed, rows: matched };
-        } else if (parsed) {
-          resolvedNames[type] = sheetName;
-          sheetsWithUserData[type] = parsed;
+          sheetsWithUserData[type] = { ...parsed, rows };
         }
       }
 
       // 整理出勤時數結果：合併所有分頁中屬於選擇月份的資料
-      const targetMonth = parseInt(monthStr, 10);
       let attendanceHeaders = [];
       const attendanceRows = [];
       const attendanceSheetNames = [];
