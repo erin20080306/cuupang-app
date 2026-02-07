@@ -509,6 +509,11 @@ const App = () => {
     // 清除 localStorage 中的登入資料
     localStorage.removeItem('loginTime');
     localStorage.removeItem('user');
+    // 重置登入表單和管理員模式
+    setLoginData({ name: '', birthday: '' });
+    setLoginError('');
+    setIsAdminMode(false);
+    setAdminSearchName('');
   };
   
   // 下載月曆為 PNG（支援舊式手機）
@@ -563,6 +568,14 @@ const App = () => {
     const daysInMonth = new Date(year, selectedMonth, 0).getDate();
     const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
     const firstDayOfWeek = new Date(year, selectedMonth - 1, 1).getDay();
+    
+    // 計算上個月和下個月的跨月日期
+    const prevMonth = selectedMonth === 1 ? 12 : selectedMonth - 1;
+    const nextMonth = selectedMonth === 12 ? 1 : selectedMonth + 1;
+    const prevMonthDays = new Date(year, selectedMonth - 1, 0).getDate();
+    const prevMonthDates = Array.from({ length: firstDayOfWeek }, (_, i) => prevMonthDays - firstDayOfWeek + 1 + i);
+    const totalCells = firstDayOfWeek + daysInMonth;
+    const nextMonthDates = Array.from({ length: (7 - (totalCells % 7)) % 7 }, (_, i) => i + 1);
 
     // 假別統計（TAO1 用出勤記錄，其他倉用班表）
     // 排除：未/調倉/離/轉正/調任/休/休假/休假日/例/例假/例假日/上班/空白
@@ -693,7 +706,14 @@ const App = () => {
                   {['日','一','二','三','四','五','六'].map(w => (
                     <div key={w} className="text-center text-xs font-bold text-slate-400 py-1">{w}</div>
                   ))}
-                  {Array(firstDayOfWeek).fill(null).map((_, i) => <div key={`empty-${i}`} />)}
+                  {/* 上個月跨月日期 */}
+                  {prevMonthDates.map((d) => (
+                    <div key={`prev-${d}`} className="aspect-square rounded-xl flex flex-col items-center justify-center border border-slate-50 bg-slate-50/50 shadow-sm">
+                      <span className="text-xs font-bold text-slate-300">{prevMonth}月</span>
+                      <span className="text-2xl font-bold leading-none text-slate-300">{d}</span>
+                    </div>
+                  ))}
+                  {/* 當月日期 */}
                   {daysArray.map((d) => {
                     const status = getDailyStatus(user.name, d);
                     const trimmedStatus = String(status || '').trim();
@@ -723,6 +743,13 @@ const App = () => {
                       </div>
                     );
                   })}
+                  {/* 下個月跨月日期 */}
+                  {nextMonthDates.map((d) => (
+                    <div key={`next-${d}`} className="aspect-square rounded-xl flex flex-col items-center justify-center border border-slate-50 bg-slate-50/50 shadow-sm">
+                      <span className="text-xs font-bold text-slate-300">{nextMonth}月</span>
+                      <span className="text-2xl font-bold leading-none text-slate-300">{d}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </section>
@@ -869,7 +896,14 @@ const App = () => {
                 {['日','一','二','三','四','五','六'].map(w => (
                   <div key={w} className="text-center text-xs font-bold text-slate-400 py-1">{w}</div>
                 ))}
-                {Array(firstDayOfWeek).fill(null).map((_, i) => <div key={`empty-log-${i}`} />)}
+                {/* 上個月跨月日期 */}
+                {prevMonthDates.map((d) => (
+                  <div key={`prev-log-${d}`} className="aspect-square rounded-xl flex flex-col items-center justify-center border border-slate-50 bg-slate-50/50 shadow-sm">
+                    <span className="text-xs font-bold text-slate-300">{prevMonth}月</span>
+                    <span className="text-2xl font-bold leading-none text-slate-300">{d}</span>
+                  </div>
+                ))}
+                {/* 當月日期 */}
                 {daysArray.map((d) => {
                   const status = getDailyRecord(user.name, d);
                   const trimmedStatus = String(status || '').trim();
@@ -883,6 +917,13 @@ const App = () => {
                     </div>
                   );
                 })}
+                {/* 下個月跨月日期 */}
+                {nextMonthDates.map((d) => (
+                  <div key={`next-log-${d}`} className="aspect-square rounded-xl flex flex-col items-center justify-center border border-slate-50 bg-slate-50/50 shadow-sm">
+                    <span className="text-xs font-bold text-slate-300">{nextMonth}月</span>
+                    <span className="text-2xl font-bold leading-none text-slate-300">{d}</span>
+                  </div>
+                ))}
                 </div>
               </div>
             </section>
