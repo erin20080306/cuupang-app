@@ -73,7 +73,6 @@ const App = () => {
   
   // 月曆區域的 ref（用於下載 PNG）
   const calendarRef = useRef(null);
-  const isComposingRef = useRef(false); // 處理中文輸入法組字
   const recordsCalendarRef = useRef(null);
   const leaveStatsRef = useRef(null);
   const attendanceRef = useRef(null);
@@ -1399,8 +1398,8 @@ const App = () => {
               type="text" 
               className="w-full p-4 bg-slate-100 border-none rounded-2xl outline-none font-bold text-slate-800 text-center text-lg placeholder:text-slate-500" 
               placeholder="姓名" 
-              defaultValue=""
-              onInput={(e) => setLoginData(prev => ({...prev, name: e.target.value}))}
+              value={loginData.name} 
+              onChange={(e) => setLoginData({...loginData, name: e.target.value})}
             />
             
             {/* 生日輸入 */}
