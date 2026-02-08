@@ -1290,16 +1290,19 @@ const App = () => {
                   const headers = (modalType === 'schedule' ? sheetData.schedule.headers : modalType === 'attendance' ? sheetData.attendance.headers : modalType === 'adjustment' ? sheetData.adjustment.headers : sheetData.records.headers);
                   const rows = (modalType === 'schedule' ? sheetData.schedule.rows : modalType === 'attendance' ? sheetData.attendance.rows : modalType === 'adjustment' ? sheetData.adjustment.rows : sheetData.records.rows);
                   
-                  // 找出最後一個有內容的欄位索引
+                  // 找出最後一個有內容的欄位索引，但最多只到第 46 欄（AT 欄）
+                  const maxCol = 46;
                   let lastColWithData = 0;
-                  headers.forEach((h, idx) => {
+                  headers.slice(0, maxCol).forEach((h, idx) => {
                     if (String(h || '').trim()) lastColWithData = idx;
                   });
                   rows.forEach(row => {
-                    headers.forEach((h, idx) => {
+                    headers.slice(0, maxCol).forEach((h, idx) => {
                       if (String(row[h] || '').trim()) lastColWithData = Math.max(lastColWithData, idx);
                     });
                   });
+                  // 確保不超過 maxCol
+                  lastColWithData = Math.min(lastColWithData, maxCol - 1);
                   const displayHeaders = headers.slice(0, lastColWithData + 1);
                   
                   return (
