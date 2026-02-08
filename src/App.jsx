@@ -686,9 +686,20 @@ const App = () => {
       // 使用 data URL
       const dataUrl = canvas.toDataURL('image/png', 1.0);
       
-      // 在當前頁面顯示圖片預覽模態框
-      setPreviewImage(dataUrl);
-      setPreviewFilename(filename);
+      // 電腦自動下載，手機顯示預覽
+      if (!isPWA && !(/Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent))) {
+        // 電腦：自動觸發下載
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // 手機/PWA：顯示預覽讓用戶長按保存
+        setPreviewImage(dataUrl);
+        setPreviewFilename(filename);
+      }
       
       setIsDownloading(false);
     } catch (error) {
