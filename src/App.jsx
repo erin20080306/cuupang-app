@@ -1286,42 +1286,61 @@ const App = () => {
                 </button>
               </div>
               <div className="flex-1 overflow-auto p-4 bg-[#F8FAFC]">
-                <div className="inline-block bg-white shadow-lg rounded-xl overflow-hidden border border-slate-300">
-                  <table className="border-collapse text-xs font-bold">
-                    <thead>
-                      <tr className="bg-[#EFEFEF] text-slate-500 text-center">
-                        {(modalType === 'schedule' ? sheetData.schedule.headers : modalType === 'attendance' ? sheetData.attendance.headers : modalType === 'adjustment' ? sheetData.adjustment.headers : sheetData.records.headers).slice(0, 46).map((header, idx) => {
-                          const isEmpty = !String(header || '').trim();
-                          return (
-                            <th key={idx} className={`px-4 py-3 whitespace-nowrap ${isEmpty ? '' : 'border border-slate-300 bg-[#EFEFEF]'}`}>{header}</th>
-                          );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(modalType === 'schedule' ? sheetData.schedule.rows : modalType === 'attendance' ? sheetData.attendance.rows : modalType === 'adjustment' ? sheetData.adjustment.rows : sheetData.records.rows).map((row, rowIdx) => (
-                        <tr key={rowIdx} className="bg-white hover:bg-slate-50">
-                          {(modalType === 'schedule' ? sheetData.schedule.headers : modalType === 'attendance' ? sheetData.attendance.headers : modalType === 'adjustment' ? sheetData.adjustment.headers : sheetData.records.headers).slice(0, 46).map((header, colIdx) => {
-                            const value = String(row[header] || '');
-                            const bgColor = row._bg?.[colIdx] || '';
-                            const textColor = row._fc?.[colIdx] || '';
-                            const isEmpty = !value.trim();
-                            return (
-                              <td key={colIdx} 
-                                className={`px-4 py-3 text-center whitespace-nowrap ${isEmpty ? '' : 'border border-slate-300'}`}
-                                style={{ 
-                                  backgroundColor: isEmpty ? 'transparent' : (bgColor || undefined),
-                                  color: textColor || undefined
-                                }}>
-                                {value}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                {(() => {
+                  const headers = (modalType === 'schedule' ? sheetData.schedule.headers : modalType === 'attendance' ? sheetData.attendance.headers : modalType === 'adjustment' ? sheetData.adjustment.headers : sheetData.records.headers);
+                  const rows = (modalType === 'schedule' ? sheetData.schedule.rows : modalType === 'attendance' ? sheetData.attendance.rows : modalType === 'adjustment' ? sheetData.adjustment.rows : sheetData.records.rows);
+                  
+                  // 找出最後一個有內容的欄位索引
+                  let lastColWithData = 0;
+                  headers.forEach((h, idx) => {
+                    if (String(h || '').trim()) lastColWithData = idx;
+                  });
+                  rows.forEach(row => {
+                    headers.forEach((h, idx) => {
+                      if (String(row[h] || '').trim()) lastColWithData = Math.max(lastColWithData, idx);
+                    });
+                  });
+                  const displayHeaders = headers.slice(0, lastColWithData + 1);
+                  
+                  return (
+                    <div className="inline-block bg-white shadow-lg rounded-xl overflow-hidden border border-slate-300">
+                      <table className="border-collapse text-xs font-bold">
+                        <thead>
+                          <tr className="bg-[#EFEFEF] text-slate-500 text-center">
+                            {displayHeaders.map((header, idx) => {
+                              const isEmpty = !String(header || '').trim();
+                              return (
+                                <th key={idx} className={`px-4 py-3 whitespace-nowrap ${isEmpty ? '' : 'border border-slate-300 bg-[#EFEFEF]'}`}>{header}</th>
+                              );
+                            })}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row, rowIdx) => (
+                            <tr key={rowIdx} className="bg-white hover:bg-slate-50">
+                              {displayHeaders.map((header, colIdx) => {
+                                const value = String(row[header] || '');
+                                const bgColor = row._bg?.[colIdx] || '';
+                                const textColor = row._fc?.[colIdx] || '';
+                                const isEmpty = !value.trim();
+                                return (
+                                  <td key={colIdx} 
+                                    className={`px-4 py-3 text-center whitespace-nowrap ${isEmpty ? '' : 'border border-slate-300'}`}
+                                    style={{ 
+                                      backgroundColor: isEmpty ? 'transparent' : (bgColor || undefined),
+                                      color: textColor || undefined
+                                    }}>
+                                    {value}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
