@@ -44,15 +44,23 @@ const NavBtn = ({ active, onClick, icon, label }) => (
 // --- 全域顏色配置 ---
 const COLOR_CONFIG = {
   "國出": { bg: "bg-yellow-100", text: "text-amber-700", border: "border-amber-200" },
+  "國": { bg: "bg-yellow-50", text: "text-amber-600", border: "border-amber-200" },
   "例": { bg: "bg-red-50", text: "text-red-600", border: "border-red-200" },
-  "休": { bg: "bg-slate-100", text: "text-slate-400", border: "border-slate-200" },
+  "例休": { bg: "bg-red-100", text: "text-red-700", border: "border-red-300" },
+  "例假日": { bg: "bg-red-100", text: "text-red-700", border: "border-red-300" },
+  "休": { bg: "bg-slate-100", text: "text-slate-500", border: "border-slate-200" },
+  "休假": { bg: "bg-slate-100", text: "text-slate-500", border: "border-slate-200" },
+  "休假日": { bg: "bg-slate-100", text: "text-slate-500", border: "border-slate-200" },
+  "休加": { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-200" },
+  "未": { bg: "bg-gray-100", text: "text-gray-500", border: "border-gray-200" },
+  "調倉": { bg: "bg-indigo-50", text: "text-indigo-600", border: "border-indigo-200" },
+  "調任": { bg: "bg-indigo-50", text: "text-indigo-600", border: "border-indigo-200" },
   "病": { bg: "bg-orange-100", text: "text-orange-800", border: "border-orange-300" },
   "上休(曠)": { bg: "bg-pink-100", text: "text-pink-700", border: "border-pink-300" },
   "下休(曠)": { bg: "bg-rose-100", text: "text-rose-700", border: "border-rose-300" },
   "特休": { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
   "事": { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
   "生理": { bg: "bg-pink-50", text: "text-pink-600", border: "border-pink-200" },
-  "例休": { bg: "bg-red-100", text: "text-red-700", border: "border-red-300" },
   "上班": { bg: "bg-white", text: "text-blue-600", border: "border-slate-100" }
 };
 
@@ -729,12 +737,13 @@ const App = () => {
     const leaveMap = {};
     const getLeaveStatus = user.warehouse === 'TAO1' ? getDailyRecord : getDailyStatus;
     
-    // 判斷是否應該排除的函數
+    // 判斷是否應該排除假別統計的函數
+    // 排除：國/未/離/調倉/調任/轉正 + 休/休假/休假日/例/例假/例假日
     const shouldExclude = (status) => {
       // 完全匹配排除
-      const exactExclude = ["未", "休", "休假", "休假日", "例", "例假", "例假日"];
+      const exactExclude = ["國", "未", "休", "休假", "休假日", "例", "例假", "例假日", "休加"];
       if (exactExclude.includes(status)) return true;
-      // 包含關鍵字排除（但不排除含有「(上休)」或「(下休)」的假別）
+      // 包含關鍵字排除
       const containsExclude = ["調倉", "離", "轉正", "調任"];
       if (containsExclude.some(k => status.includes(k))) return true;
       return false;
@@ -962,13 +971,13 @@ const App = () => {
                     const isInLeaveMap = Object.keys(leaveMap).find(type => leaveMap[type].includes(d));
                     const config = COLOR_CONFIG[status] || (isLeave ? COLOR_CONFIG["事"] : COLOR_CONFIG["上班"]);
                     
-                    // TAO1 班表：只顯示非假別統計的假（例如休、例假等）
+                    // TAO1 班表：顯示所有非上班狀態（例/例休/例假日/休/休假/休假日/國/國出/休加/未/調倉/調任等）
                     if (user.warehouse === 'TAO1') {
-                      const isNonStatLeave = isLeave && !isInLeaveMap;
-                      const displayStatus = isNonStatLeave ? status : '';
+                      const displayStatus = isLeave ? status : '';
+                      const hasStatus = isLeave && displayStatus;
                       return (
-                        <div key={d} className={`aspect-square rounded-xl flex flex-col items-center justify-center border ${isNonStatLeave ? `${config.border} ${config.bg}` : 'border-slate-100 bg-white'} shadow-sm`} style={{aspectRatio: '1/1'}}>
-                          <span className={`${isPWA ? 'text-xl' : 'text-4xl'} font-black leading-none ${isNonStatLeave ? config.text : 'text-slate-950'}`}>{d}</span>
+                        <div key={d} className={`aspect-square rounded-xl flex flex-col items-center justify-center border ${hasStatus ? `${config.border} ${config.bg}` : 'border-slate-100 bg-white'} shadow-sm`} style={{aspectRatio: '1/1'}}>
+                          <span className={`${isPWA ? 'text-xl' : 'text-4xl'} font-black leading-none ${hasStatus ? config.text : 'text-slate-950'}`}>{d}</span>
                           {displayStatus && <span className={`${isPWA ? 'text-[10px]' : 'text-base'} font-bold ${isPWA ? 'mt-0.5' : 'mt-1'} ${config.text}`}>{displayStatus}</span>}
                         </div>
                       );
