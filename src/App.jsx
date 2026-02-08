@@ -1396,7 +1396,7 @@ const App = () => {
             {/* 姓名輸入 */}
             <input 
               type="text" 
-              className="w-full p-4 bg-slate-100 border-none rounded-2xl outline-none font-bold text-slate-800 text-center text-lg placeholder:text-slate-300" 
+              className="w-full p-4 bg-slate-100 border-none rounded-2xl outline-none font-bold text-slate-800 text-center text-lg placeholder:text-slate-500" 
               placeholder="姓名" 
               value={loginData.name} 
               onChange={(e) => setLoginData({...loginData, name: e.target.value})}
@@ -1405,7 +1405,7 @@ const App = () => {
             {/* 生日輸入 */}
             <input 
               type="text" 
-              className="w-full p-4 bg-slate-100 border-none rounded-2xl outline-none font-bold text-slate-800 text-center text-lg placeholder:text-slate-300" 
+              className="w-full p-4 bg-slate-100 border-none rounded-2xl outline-none font-bold text-slate-800 text-center text-lg placeholder:text-slate-500" 
               placeholder="生日 (例如 810101)" 
               value={loginData.birthday} 
               onChange={(e) => setLoginData({...loginData, birthday: e.target.value})
