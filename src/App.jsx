@@ -923,7 +923,7 @@ const App = () => {
                   ))}
                   {/* 上個月跨月日期 */}
                   {prevMonthDates.map((d) => (
-                    <div key={`prev-${d}`} className="aspect-square rounded-xl flex flex-col items-center justify-center border border-slate-50 bg-slate-50/50 shadow-sm">
+                    <div key={`prev-${d}`} className="w-12 h-12 rounded-xl flex flex-col items-center justify-center border border-slate-50 bg-slate-50/50 shadow-sm">
                       <span className="text-[10px] font-bold text-slate-300">{prevMonth}月</span>
                       <span className={`${isPWA ? 'text-lg' : 'text-2xl'} font-bold leading-none text-slate-300`}>{d}</span>
                     </div>
@@ -942,7 +942,7 @@ const App = () => {
                       const isNonStatLeave = isLeave && !isInLeaveMap;
                       const displayStatus = isNonStatLeave ? status : '';
                       return (
-                        <div key={d} className={`aspect-square rounded-xl flex flex-col items-center justify-center border ${isNonStatLeave ? `${config.border} ${config.bg}` : 'border-slate-100 bg-white'} shadow-sm`}>
+                        <div key={d} className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center border ${isNonStatLeave ? `${config.border} ${config.bg}` : 'border-slate-100 bg-white'} shadow-sm`}>
                           <span className={`${isPWA ? 'text-xl' : 'text-4xl'} font-black leading-none ${isNonStatLeave ? config.text : 'text-slate-950'}`}>{d}</span>
                           {displayStatus && <span className={`${isPWA ? 'text-[10px]' : 'text-base'} font-bold ${isPWA ? 'mt-0.5' : 'mt-1'} ${config.text}`}>{displayStatus}</span>}
                         </div>
@@ -952,7 +952,7 @@ const App = () => {
                     // 其他倉：顯示所有非「上班」和非空白的狀態
                     const displayStatus = isLeave ? status : '';
                     return (
-                      <div key={d} className={`aspect-square rounded-xl flex flex-col items-center justify-center border ${isInLeaveMap ? `${config.border} ${config.bg}` : 'border-slate-100 bg-white'} shadow-sm`}>
+                      <div key={d} className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center border ${isInLeaveMap ? `${config.border} ${config.bg}` : 'border-slate-100 bg-white'} shadow-sm`}>
                         <span className={`${isPWA ? 'text-xl' : 'text-4xl'} font-black leading-none ${isInLeaveMap ? config.text : 'text-slate-950'}`}>{d}</span>
                         {displayStatus && <span className={`${isPWA ? 'text-[10px]' : 'text-base'} font-bold ${isPWA ? 'mt-0.5' : 'mt-1'} ${isInLeaveMap ? config.text : 'text-slate-600'}`}>{displayStatus}</span>}
                       </div>
@@ -960,7 +960,7 @@ const App = () => {
                   })}
                   {/* 下個月跨月日期 */}
                   {nextMonthDates.map((d) => (
-                    <div key={`next-${d}`} className="aspect-square rounded-xl flex flex-col items-center justify-center border border-slate-50 bg-slate-50/50 shadow-sm">
+                    <div key={`next-${d}`} className="w-12 h-12 rounded-xl flex flex-col items-center justify-center border border-slate-50 bg-slate-50/50 shadow-sm">
                       <span className="text-[10px] font-bold text-slate-300">{nextMonth}月</span>
                       <span className={`${isPWA ? 'text-lg' : 'text-2xl'} font-bold leading-none text-slate-300`}>{d}</span>
                     </div>
