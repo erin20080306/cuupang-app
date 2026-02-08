@@ -1216,7 +1216,7 @@ const App = () => {
         </nav>
 
         {/* 原始 Sheet 彈窗 */}
-        {/* 圖片預覽模態框 - 讓用戶長按保存 */}
+        {/* 圖片預覽模態框 - 讓用戶長按保存或點擊下載 */}
         {previewImage && (
           <div className="fixed inset-0 z-[200] bg-slate-950/95 backdrop-blur-lg flex flex-col items-center justify-center p-4">
             <div className="w-full max-w-lg bg-white rounded-3xl overflow-hidden shadow-2xl">
@@ -1226,11 +1226,19 @@ const App = () => {
                   <X size={20}/>
                 </button>
               </div>
-              <div className="p-4 bg-slate-100 overflow-auto max-h-[70vh]">
+              <div className="p-4 bg-slate-100 overflow-auto max-h-[60vh]">
                 <img src={previewImage} alt={previewFilename} className="w-full rounded-xl shadow-lg" />
               </div>
-              <div className="p-4 bg-slate-50 text-center">
-                <p className="text-slate-500 text-sm font-bold">長按上方圖片 → 選擇「儲存圖片」或「加入照片」</p>
+              <div className="p-4 bg-slate-50 space-y-3">
+                <p className="text-slate-500 text-sm font-bold text-center">長按上方圖片 → 選擇「儲存圖片」或「加入照片」</p>
+                <a 
+                  href={previewImage} 
+                  download={previewFilename}
+                  className="block w-full py-3 bg-blue-600 text-white text-center rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors"
+                >
+                  <Download size={16} className="inline mr-2" />
+                  點擊直接下載（舊手機適用）
+                </a>
               </div>
             </div>
           </div>
