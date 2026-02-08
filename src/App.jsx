@@ -1290,9 +1290,12 @@ const App = () => {
                   <table className="border-collapse text-xs font-bold">
                     <thead>
                       <tr className="bg-[#EFEFEF] text-slate-500 text-center">
-                        {(modalType === 'schedule' ? sheetData.schedule.headers : modalType === 'attendance' ? sheetData.attendance.headers : modalType === 'adjustment' ? sheetData.adjustment.headers : sheetData.records.headers).slice(0, 46).map((header, idx) => (
-                          <th key={idx} className="border border-slate-300 px-4 py-3 whitespace-nowrap">{header}</th>
-                        ))}
+                        {(modalType === 'schedule' ? sheetData.schedule.headers : modalType === 'attendance' ? sheetData.attendance.headers : modalType === 'adjustment' ? sheetData.adjustment.headers : sheetData.records.headers).slice(0, 46).map((header, idx) => {
+                          const isEmpty = !String(header || '').trim();
+                          return (
+                            <th key={idx} className={`px-4 py-3 whitespace-nowrap ${isEmpty ? '' : 'border border-slate-300 bg-[#EFEFEF]'}`}>{header}</th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
