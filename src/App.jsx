@@ -1231,14 +1231,21 @@ const App = () => {
               </div>
               <div className="p-4 bg-slate-50 space-y-3">
                 <p className="text-slate-500 text-sm font-bold text-center">長按上方圖片 → 選擇「儲存圖片」或「加入照片」</p>
-                <a 
-                  href={previewImage} 
-                  download={previewFilename}
+                <button 
+                  onClick={() => {
+                    // 建立隱藏的 a 標籤來觸發下載
+                    const link = document.createElement('a');
+                    link.href = previewImage;
+                    link.download = previewFilename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
                   className="block w-full py-3 bg-blue-600 text-white text-center rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors"
                 >
                   <Download size={16} className="inline mr-2" />
                   點擊直接下載（舊手機適用）
-                </a>
+                </button>
               </div>
             </div>
           </div>
