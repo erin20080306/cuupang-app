@@ -1401,8 +1401,8 @@ const App = () => {
               placeholder="姓名" 
               value={loginData.name} 
               onCompositionStart={() => { isComposingRef.current = true; }}
-              onCompositionEnd={(e) => { isComposingRef.current = false; setLoginData({...loginData, name: e.target.value}); }}
-              onChange={(e) => { if (!isComposingRef.current) setLoginData({...loginData, name: e.target.value}); }}
+              onCompositionEnd={(e) => { isComposingRef.current = false; setLoginData(prev => ({...prev, name: e.target.value})); }}
+              onChange={(e) => { if (!isComposingRef.current) setLoginData(prev => ({...prev, name: e.target.value})); }}
             />
             
             {/* 生日輸入 */}
