@@ -653,7 +653,10 @@ const App = () => {
     setIsDownloading(true);
     try {
       // 使用 html2canvas 將元素轉換為 canvas
-      const canvas = await html2canvas(refElement.current, {
+      const element = refElement.current;
+      // 取得元素實際尺寸並加上額外邊距
+      const rect = element.getBoundingClientRect();
+      const canvas = await html2canvas(element, {
         backgroundColor: '#ffffff',
         scale: 2, // 提高解析度
         useCORS: true,
@@ -665,8 +668,10 @@ const App = () => {
         // 確保完整區域都被捕獲
         scrollX: 0,
         scrollY: 0,
-        windowWidth: refElement.current.scrollWidth,
-        windowHeight: refElement.current.scrollHeight,
+        width: element.scrollWidth + 16,
+        height: element.scrollHeight + 16,
+        x: -8,
+        y: -8,
       });
       
       // 使用 data URL
@@ -915,7 +920,7 @@ const App = () => {
                   </button>
                 </div>
               </div>
-              <div ref={calendarRef} className="bg-white p-2">
+              <div ref={calendarRef} className="bg-white p-4">
                 <div className="text-center mb-3 text-sm font-bold text-slate-600">{user.name} - {year}年{selectedMonth}月 班表</div>
                 <div className="grid grid-cols-7 gap-2">
                   {['日','一','二','三','四','五','六'].map(w => (
