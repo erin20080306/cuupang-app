@@ -1302,11 +1302,12 @@ const App = () => {
                             const value = String(row[header] || '');
                             const bgColor = row._bg?.[colIdx] || '';
                             const textColor = row._fc?.[colIdx] || '';
+                            const isEmpty = !value.trim();
                             return (
                               <td key={colIdx} 
-                                className="border border-slate-300 px-4 py-3 text-center whitespace-nowrap"
+                                className={`px-4 py-3 text-center whitespace-nowrap ${isEmpty ? '' : 'border border-slate-300'}`}
                                 style={{ 
-                                  backgroundColor: bgColor || undefined,
+                                  backgroundColor: isEmpty ? 'transparent' : (bgColor || undefined),
                                   color: textColor || undefined
                                 }}>
                                 {value}
