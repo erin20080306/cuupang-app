@@ -1390,7 +1390,7 @@ const App = () => {
             H
           </div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tighter mb-2">宏盛查詢系統</h1>
-          <p className="text-sm text-slate-400 mb-8">請使用生日管理分頁中的姓名和生日登入</p>
+          <p className="text-sm text-slate-400 mb-8">請輸入姓名和生日登入</p>
           
           <form onSubmit={handleLogin} className="space-y-4">
             {/* 姓名輸入 */}
