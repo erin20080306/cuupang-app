@@ -12,7 +12,7 @@ export default defineConfig({
         name: '員工出勤系統',
         short_name: '出勤系統',
         description: '員工班表、出勤時數、假別統計查詢系統',
-        theme_color: '#2563eb',
+        theme_color: '#10B981',
         background_color: '#f1f5f9',
         display: 'standalone',
         orientation: 'portrait',
