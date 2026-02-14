@@ -738,10 +738,10 @@ const App = () => {
     const getLeaveStatus = user.warehouse === 'TAO1' ? getDailyRecord : getDailyStatus;
     
     // 判斷是否應該排除假別統計的函數
-    // 排除：國/未/離/調倉/調任/轉正 + 休/休假/休假日/例/例假/例假日
+    // 排除：國/未/離/調倉/調任/轉正 + 休/休假/休假日/例/例假/例假日/例休
     const shouldExclude = (status) => {
       // 完全匹配排除
-      const exactExclude = ["國", "未", "休", "休假", "休假日", "例", "例假", "例假日", "休加"];
+      const exactExclude = ["國", "未", "休", "休假", "休假日", "例", "例假", "例假日", "例休", "休加"];
       if (exactExclude.includes(status)) return true;
       // 包含關鍵字排除
       const containsExclude = ["調倉", "離", "轉正", "調任"];
@@ -1160,13 +1160,14 @@ const App = () => {
                   const status = getDailyRecord(user.name, d);
                   const trimmedStatus = String(status || '').trim();
                   const isLeave = trimmedStatus && trimmedStatus !== '上班';
-                  // 只有假別統計中的假別才有底色
+                  // 假別統計中的假別才有底色，其他假別顯示但不用底色
                   const isInLeaveMap = Object.keys(leaveMap).find(type => leaveMap[type].includes(d));
                   const config = COLOR_CONFIG[status] || (isLeave ? COLOR_CONFIG["事"] : COLOR_CONFIG["上班"]);
+                  const displayStatus = isLeave ? status : '';
                   return (
                     <div key={d} className={`aspect-square rounded-xl flex flex-col items-center justify-center border transition-all ${isInLeaveMap ? `${config.bg} ${config.border} shadow-md` : 'bg-white border-slate-100'}`}>
                       <span className={`${isPWA ? 'text-xl' : 'text-5xl'} font-black leading-none ${isInLeaveMap ? config.text : 'text-slate-950'}`}>{d}</span>
-                      {isInLeaveMap && <span className={`${isPWA ? 'text-[10px]' : 'text-base'} font-bold ${isPWA ? 'mt-0.5' : 'mt-1'} ${config.text}`}>{status}</span>}
+                      {displayStatus && <span className={`${isPWA ? 'text-[10px]' : 'text-base'} font-bold ${isPWA ? 'mt-0.5' : 'mt-1'} ${isInLeaveMap ? config.text : 'text-slate-500'}`}>{status}</span>}
                     </div>
                   );
                 })}
